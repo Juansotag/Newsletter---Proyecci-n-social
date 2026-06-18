@@ -92,6 +92,17 @@ class DocUpdate(BaseModel):
     sort_order: int = None
 
 
+class AssistRequest(BaseModel):
+    name: str
+    content: str
+    instruction: str
+
+
+class AssistResponse(BaseModel):
+    response: str
+    modified_content: str
+
+
 def build_user_message(cfg: Config) -> str:
     hoy  = datetime.date.today().isoformat()
     ejes = ", ".join(cfg.ejes) if cfg.ejes else "todos los ejes prioritarios"
@@ -294,6 +305,61 @@ def delete_doc(doc_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/docs/assist", response_model=AssistResponse)
+async def assist_doc(body: AssistRequest):
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="Falta ANTHROPIC_API_KEY en el servidor")
+        
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    
+    system_prompt = (
+        "Eres un asistente experto de inteligencia artificial del GovLab.\n"
+        "Estás ayudando al usuario a redactar, revisar o editar un documento de contexto de un newsletter ejecutivo.\n"
+        "El usuario te enviará el contenido actual del documento, el nombre del documento y su instrucción.\n"
+        "Tú debes responder en formato JSON con dos campos:\n"
+        "1. 'response': Tu respuesta explicativa o de revisión de seguridad para el usuario. Debe ser en español, formal y ejecutivo, SIN EMOJIS.\n"
+        "Si el usuario pide validar si los cambios están bien, analiza de manera crítica el contenido.\n"
+        "Si el documento es '00_sistema_instrucciones.md' y detectas que la estructura JSON de la salida fue alterada de tal forma que no cumpla con las especificaciones obligatorias, advierte claramente en 'response' que esa modificación dañará el funcionamiento y parser del newsletter, y NO modifiques el contenido.\n"
+        "La estructura obligatoria del JSON que Claude debe retornar en el newsletter es:\n"
+        "{\n"
+        "  \"titulo\": \"...\",\n"
+        "  \"fecha\": \"YYYY-MM-DD\",\n"
+        "  \"contexto\": \"...\",\n"
+        "  \"cifras\": [{\"dato\": \"...\", \"contexto\": \"...\", \"fuente\": \"...\", \"url\": \"...\"}],\n"
+        "  \"items\": [{\"eje\": \"...\", \"titular\": \"...\", \"resumen\": \"...\", \"por_que_importa\": \"...\", \"fuente\": \"...\", \"url\": \"...\"}],\n"
+        "  \"oportunidades\": [{\"texto\": \"...\", \"fuente\": \"...\", \"url\": \"...\"}]\n"
+        "}\n"
+        "2. 'modified_content': Si la instrucción solicita cambios, mejoras, traducciones o agregar información, devuelve aquí el contenido del documento completamente actualizado. Si es una pregunta de revisión o no requiere cambios, devuelve el contenido original tal cual.\n\n"
+        "Devuelve exclusivamente el JSON válido, sin textos adicionales, prefijos ni marcas de código."
+    )
+    
+    user_message = (
+        f"Nombre del documento: {body.name}\n\n"
+        f"Contenido actual:\n{body.content}\n\n"
+        f"Instrucción del usuario: {body.instruction}"
+    )
+    
+    try:
+        message = await client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}]
+        )
+        
+        text = message.content[0].text
+        data = extract_json(text)
+        
+        response_text = data.get("response", "")
+        modified_content = data.get("modified_content", body.content)
+        
+        return AssistResponse(response=response_text, modified_content=modified_content)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al conectar con Claude: {str(e)}")
 
 
 # ─── Frontend estático ─────────────────────────────────────────────────────────

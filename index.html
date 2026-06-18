@@ -152,7 +152,7 @@
     }
 
     .hero p {
-      max-width: 640px;
+      max-width: 100%;
       color: var(--text-secondary);
       margin: 0 0 1.75rem;
       font-size: .95rem;
@@ -900,6 +900,123 @@
         grid-template-columns: 1fr !important;
       }
     }
+
+    .editor-flex-container {
+      display: flex;
+      gap: 1rem;
+      align-items: stretch;
+      margin-top: 1rem;
+      width: 100%;
+    }
+    .editor-main-pane {
+      flex: 1;
+      min-width: 0;
+    }
+    .ai-assistant-panel {
+      width: 350px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+    }
+    @media (max-width: 1024px) {
+      .editor-flex-container {
+        flex-direction: column;
+      }
+      .ai-assistant-panel {
+        width: 100%;
+      }
+    }
+    .ai-chat-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-main);
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--c-blue-dark);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top-left-radius: 7px;
+      border-top-right-radius: 7px;
+    }
+    .ai-chat-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      max-height: 450px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: #fafbfd;
+      min-height: 380px;
+    }
+    .chat-msg {
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      max-width: 85%;
+      word-break: break-word;
+    }
+    .chat-msg.user {
+      background: var(--c-blue-tint);
+      color: var(--c-blue-dark);
+      align-self: flex-end;
+      border-bottom-right-radius: 2px;
+    }
+    .chat-msg.ai {
+      background: #ffffff;
+      color: var(--text-secondary);
+      align-self: flex-start;
+      border: 1px solid var(--border-color);
+      border-bottom-left-radius: 2px;
+    }
+    .ai-chat-input-area {
+      padding: 0.75rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 0.5rem;
+      background: #ffffff;
+      border-bottom-left-radius: 7px;
+      border-bottom-right-radius: 7px;
+    }
+    .ai-chat-input-area textarea {
+      flex: 1;
+      min-height: 38px;
+      height: 38px;
+      max-height: 120px;
+      padding: 0.45rem 0.65rem;
+      font-size: 0.82rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      resize: none;
+      font-family: var(--font-main);
+    }
+    .ai-chat-send-btn {
+      background: var(--c-blue-dark);
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 0 0.85rem;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ai-chat-send-btn:hover {
+      background: var(--c-blue-hover);
+    }
+    .btn-ghost.active {
+      background: var(--c-blue-tint);
+      border-color: var(--c-blue-light);
+      color: var(--c-blue-dark);
+    }
   </style>
 </head>
 
@@ -1017,7 +1134,7 @@
           siguiente newsletter sin reiniciar el servidor.</p>
         
         <!-- Alerta de advertencia del prompt del sistema -->
-        <div style="background: #FFF9EB; border-left: 4px solid var(--c-yellow); padding: 1rem; border-radius: 8px; font-size: 0.85rem; margin-top: 1rem; max-width: 800px; line-height: 1.45;">
+        <div style="background: #FFF9EB; border-left: 4px solid var(--c-yellow); padding: 1rem; border-radius: 8px; font-size: 0.85rem; margin-top: 1rem; max-width: 100%; box-sizing: border-box; width: 100%; line-height: 1.45;">
           <p style="margin: 0; font-weight: 700; color: #8A6D3B;">Atención sobre el Prompt del Sistema</p>
           <p style="margin: 0.35rem 0 0; color: #8A6D3B; opacity: 0.9;">
             El documento <strong>00_sistema_instrucciones.md</strong> contiene las directrices principales de comportamiento del agente y la plantilla del prompt. Modificar este archivo de manera incorrecta puede alterar significativamente la calidad del newsletter o hacer que la generación falle. Procede con precaución al editarlo.
@@ -1050,7 +1167,14 @@
               <span class="ctx-editor-title" id="ctxEditorTitle" style="font-weight: 700; font-size: 1.1rem; color: var(--c-blue-dark);">—</span>
               <div class="ctx-editor-actions" style="display: flex; align-items: center; gap: 0.5rem;">
                 <span class="saved-badge" id="savedBadge">Guardado</span>
-                <button class="btn-ghost btn-sm" onclick="saveCtxFile()">Guardar</button>
+                <button class="btn-ghost btn-sm" onclick="validateAndSaveCtxFile()">Guardar</button>
+                <button class="btn-ghost btn-sm" id="btnAiAssist" onclick="toggleAiAssistant()" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0.45rem 0.6rem;" title="Asistente IA">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                    <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5 5 3Z" opacity="0.7"/>
+                    <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z" opacity="0.7"/>
+                  </svg>
+                </button>
                 <button class="btn-ghost btn-sm" id="btnDeleteDoc" onclick="deleteCurrentDoc()" style="border-color: var(--c-red); color: var(--c-red);">Eliminar</button>
               </div>
             </div>
@@ -1077,11 +1201,41 @@
               <button type="button" id="previewTabBtn" onclick="switchEditorTab('preview')" class="tab-btn" style="padding: 0.5rem 1rem; font-size: 0.82rem; margin-bottom: -1px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-weight: 600;">Vista Previa</button>
             </div>
 
-            <!-- Editor Content Area -->
-            <div id="editorContentArea">
-              <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd; display: block;" oninput="updateMarkdownPreview()"></textarea>
-              <div id="previewContainer" style="display: none;">
-                <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);"></div>
+            <!-- Flex Container for Editor Content and AI Chatbot Panel -->
+            <div class="editor-flex-container">
+              <!-- Main editor pane (textarea + preview) -->
+              <div class="editor-main-pane" id="editorMainPane">
+                <!-- Editor Content Area -->
+                <div id="editorContentArea">
+                  <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd; display: block;" oninput="updateMarkdownPreview()"></textarea>
+                  <div id="previewContainer" style="display: none;">
+                    <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- AI Chatbot Panel (Side Panel) -->
+              <div class="ai-assistant-panel" id="aiAssistantPanel" style="display: none;">
+                <div class="ai-chat-header">
+                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                    </svg>
+                    <span>Asistente IA</span>
+                  </div>
+                  <button onclick="toggleAiAssistant()" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="Cerrar panel">×</button>
+                </div>
+                <div class="ai-chat-messages" id="aiChatMessages">
+                  <div class="chat-msg ai">
+                    Hola, soy tu asistente de IA de GovLab. Puedo ayudarte a redactar o hacer cambios en el documento actual. Escribe tu instrucción abajo o presiona <strong>Guardar</strong> para validar los cambios automáticamente.
+                  </div>
+                </div>
+                <div class="ai-chat-input-area">
+                  <textarea id="aiChatInput" placeholder="Escribe tu instrucción de cambio..." onkeydown="handleAiChatKey(event)"></textarea>
+                  <button class="ai-chat-send-btn" id="btnSendAiChat" onclick="sendAiChatMessage()">
+                    Enviar
+                  </button>
+                </div>
               </div>
             </div>
             <p class="ctx-hint" style="margin-top: 0.75rem; font-size: 0.77rem; color: var(--text-muted);">Los cambios se aplican de inmediato en las generaciones de newsletters.</p>
@@ -1545,6 +1699,15 @@
         document.getElementById('ctxDescInput').value = doc.description || '';
         document.getElementById('ctxTextarea').value = doc.content || '';
         
+        const chatMsgs = document.getElementById('aiChatMessages');
+        if (chatMsgs) {
+          chatMsgs.innerHTML = `
+            <div class="chat-msg ai">
+              Hola, soy tu asistente de IA de GovLab. Puedo ayudarte a redactar o hacer cambios en el documento <strong>${esc(doc.name)}</strong>. Escribe tu instrucción abajo o presiona <strong>Guardar</strong> para validar los cambios automáticamente.
+            </div>
+          `;
+        }
+        
         const deleteBtn = document.getElementById('btnDeleteDoc');
         if (deleteBtn) {
           deleteBtn.style.display = doc.is_system_prompt ? 'none' : 'inline-block';
@@ -1743,6 +1906,203 @@
         editBtn.style.fontWeight = '600';
         
         updateMarkdownPreview();
+      }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // ASISTENTE DE IA & CHATBOT
+    // ══════════════════════════════════════════════════════
+    function toggleAiAssistant() {
+      const panel = document.getElementById('aiAssistantPanel');
+      const btn = document.getElementById('btnAiAssist');
+      if (!panel) return;
+      if (panel.style.display === 'none') {
+        panel.style.display = 'flex';
+        if (btn) btn.classList.add('active');
+        const chatMsgs = document.getElementById('aiChatMessages');
+        if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        const input = document.getElementById('aiChatInput');
+        if (input) input.focus();
+      } else {
+        panel.style.display = 'none';
+        if (btn) btn.classList.remove('active');
+      }
+    }
+
+    function appendChatMessage(sender, text, type = '') {
+      const container = document.getElementById('aiChatMessages');
+      if (!container) return null;
+      
+      const div = document.createElement('div');
+      div.className = `chat-msg ${sender}`;
+      
+      if (type === 'warning') {
+        div.style.background = '#FFF5F5';
+        div.style.color = 'var(--c-red)';
+        div.style.borderColor = '#FFC1C1';
+        div.style.borderStyle = 'solid';
+        div.style.borderWidth = '1px';
+      } else if (type === 'success') {
+        div.style.background = '#F0FFF4';
+        div.style.color = 'var(--c-green)';
+        div.style.borderColor = '#C6F6D5';
+        div.style.borderStyle = 'solid';
+        div.style.borderWidth = '1px';
+      } else if (type === 'loading') {
+        div.innerHTML = `<span class="spinner" style="border-top-color: var(--c-blue-dark); border-left-color: rgba(0,0,0,0.1); border-right-color: rgba(0,0,0,0.1); border-bottom-color: rgba(0,0,0,0.1);"></span> ${esc(text)}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+      }
+      
+      div.innerHTML = text.replace(/\n/g, '<br>');
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      return div;
+    }
+
+    async function sendAiChatMessage() {
+      if (!_ctxCurrentFileId) return;
+      const input = document.getElementById('aiChatInput');
+      const instruction = input.value.trim();
+      if (!instruction) return;
+      
+      appendChatMessage('user', instruction);
+      input.value = '';
+      input.style.height = '38px';
+      
+      input.disabled = true;
+      const sendBtn = document.getElementById('btnSendAiChat');
+      if (sendBtn) sendBtn.disabled = true;
+      
+      const loadingMsg = appendChatMessage('ai', 'Procesando cambios...', 'loading');
+      
+      const content = document.getElementById('ctxTextarea').value;
+      const name = document.getElementById('ctxNameInput').value;
+      
+      try {
+        const r = await fetch('/api/docs/assist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, content, instruction })
+        });
+        
+        if (loadingMsg) loadingMsg.remove();
+        
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${r.status}`);
+        }
+        
+        const data = await r.json();
+        
+        appendChatMessage('ai', data.response);
+        
+        if (data.modified_content !== content) {
+          document.getElementById('ctxTextarea').value = data.modified_content;
+          updateMarkdownPreview();
+          appendChatMessage('ai', 'El documento ha sido modificado en el editor.', 'success');
+        }
+      } catch (e) {
+        if (loadingMsg) loadingMsg.remove();
+        appendChatMessage('ai', `Error: ${e.message}`, 'warning');
+      } finally {
+        input.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    function handleAiChatKey(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendAiChatMessage();
+      }
+    }
+
+    async function validateAndSaveCtxFile() {
+      if (!_ctxCurrentFileId) return;
+      
+      const folder = document.getElementById('ctxFolderInput').value.trim();
+      const name = document.getElementById('ctxNameInput').value.trim();
+      const description = document.getElementById('ctxDescInput').value.trim();
+      const content = document.getElementById('ctxTextarea').value;
+      
+      if (!name) {
+        alert('El nombre del archivo es obligatorio');
+        return;
+      }
+      
+      const panel = document.getElementById('aiAssistantPanel');
+      if (panel && panel.style.display === 'none') {
+        toggleAiAssistant();
+      }
+      
+      const loadingMsg = appendChatMessage('ai', 'Validando cambios con la IA...', 'loading');
+      
+      const saveBtn = document.querySelector('button[onclick="validateAndSaveCtxFile()"]');
+      if (saveBtn) saveBtn.disabled = true;
+      
+      try {
+        const r = await fetch('/api/docs/assist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            content,
+            instruction: "Valida de manera crítica si el contenido del documento está en orden y es seguro guardar. Si es el prompt del sistema (00_sistema_instrucciones.md), valida exhaustivamente que la estructura JSON de la salida no haya sido alterada o rota. Indica explícitamente si hay algún problema de formato/estructura o si todo está correcto para guardar."
+          })
+        });
+        
+        if (loadingMsg) loadingMsg.remove();
+        
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${r.status}`);
+        }
+        
+        const data = await r.json();
+        
+        const responseText = data.response || '';
+        const isWarning = /error|inválido|incorrecto|dañará|peligro|no se puede|estructura rota|atención|problema|advertencia/i.test(responseText);
+        
+        if (isWarning) {
+          appendChatMessage('ai', responseText, 'warning');
+          const confirmSave = confirm(`El asistente de IA advierte un posible problema con los cambios:\n\n"${responseText}"\n\n¿Deseas guardar los cambios de todas formas?`);
+          if (!confirmSave) {
+            appendChatMessage('ai', 'Operación de guardado cancelada por el usuario.', 'warning');
+            if (saveBtn) saveBtn.disabled = false;
+            return;
+          }
+        } else {
+          appendChatMessage('ai', responseText, 'success');
+        }
+        
+        const saveResponse = await fetch(`/api/docs/${_ctxCurrentFileId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder, name, description, content })
+        });
+        
+        if (!saveResponse.ok) {
+          const err = await saveResponse.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${saveResponse.status}`);
+        }
+        
+        const badge = document.getElementById('savedBadge');
+        if (badge) {
+          badge.classList.add('show');
+          setTimeout(() => badge.classList.remove('show'), 3000);
+        }
+        
+        appendChatMessage('ai', '¡Cambios guardados correctamente!', 'success');
+        await loadCtxFiles();
+      } catch (e) {
+        if (loadingMsg) loadingMsg.remove();
+        appendChatMessage('ai', `Error al guardar/validar: ${e.message}`, 'warning');
+        alert(`Error: ${e.message}`);
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
       }
     }
 
