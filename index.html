@@ -1292,6 +1292,26 @@
             </div>
           </div>
 
+          <!-- Configuración de Modelos -->
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;">
+            <label for="modelGenSelect" class="label-section" style="margin-top: 0;">Modelo para Generación de Newsletter</label>
+            <select id="modelGenSelect" style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
+              <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet (Recomendado)</option>
+              <option value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
+              <option value="claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
+              <option value="claude-3-opus-latest">Claude 3.0 Opus</option>
+            </select>
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;">
+            <label for="modelAssistSelect" class="label-section" style="margin-top: 0;">Modelo para Asistente de Contexto (Chatbot)</label>
+            <select id="modelAssistSelect" style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
+              <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet (Recomendado)</option>
+              <option value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
+              <option value="claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
+            </select>
+          </div>
+
           <!-- Botones de Acción -->
           <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
             <button class="btn" id="btnSaveConfig" onclick="saveConfig()" style="margin-top: 0; flex: 1;">
@@ -1387,6 +1407,7 @@
     // ══════════════════════════════════════════════════════
     async function generar() {
       const cfg = getConfig();
+      cfg.model = localStorage.getItem('anthropic_model_generation') || 'claude-3-5-sonnet-latest';
       const btn = document.getElementById('generar');
       const label = document.getElementById('btnLabel');
 
@@ -1986,13 +2007,14 @@
       
       try {
         const apiKey = localStorage.getItem('anthropic_api_key') || '';
+        const model = localStorage.getItem('anthropic_model_assist') || 'claude-3-5-sonnet-latest';
         const r = await fetch('/api/docs/assist', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'X-API-Key': apiKey
           },
-          body: JSON.stringify({ name, content, instruction })
+          body: JSON.stringify({ name, content, instruction, model })
         });
         
         if (loadingMsg) loadingMsg.remove();
@@ -2053,6 +2075,7 @@
       
       try {
         const apiKey = localStorage.getItem('anthropic_api_key') || '';
+        const model = localStorage.getItem('anthropic_model_assist') || 'claude-3-5-sonnet-latest';
         const r = await fetch('/api/docs/assist', {
           method: 'POST',
           headers: { 
@@ -2062,7 +2085,8 @@
           body: JSON.stringify({
             name,
             content,
-            instruction: "Valida de manera crítica si el contenido del documento está en orden y es seguro guardar. Si es el prompt del sistema (00_sistema_instrucciones.md), valida exhaustivamente que la estructura JSON de la salida no haya sido alterada o rota. Indica explícitamente si hay algún problema de formato/estructura o si todo está correcto para guardar."
+            instruction: "Valida de manera crítica si el contenido del documento está en orden y es seguro guardar. Si es el prompt del sistema (00_sistema_instrucciones.md), valida exhaustivamente que la estructura JSON de la salida no haya sido alterada o rota. Indica explícitamente si hay algún problema de formato/estructura o si todo está correcto para guardar.",
+            model
           })
         });
         
@@ -2161,6 +2185,16 @@
       const key = localStorage.getItem('anthropic_api_key') || '';
       const input = document.getElementById('apiKeyInput');
       if (input) input.value = key;
+      
+      const modelGen = localStorage.getItem('anthropic_model_generation') || 'claude-3-5-sonnet-latest';
+      const modelAssist = localStorage.getItem('anthropic_model_assist') || 'claude-3-5-sonnet-latest';
+      
+      const genSelect = document.getElementById('modelGenSelect');
+      const assistSelect = document.getElementById('modelAssistSelect');
+      
+      if (genSelect) genSelect.value = modelGen;
+      if (assistSelect) assistSelect.value = modelAssist;
+      
       updateBrowserKeyStatusLabel(!!key);
       checkServerKeyStatus();
     }
@@ -2177,6 +2211,16 @@
         updateBrowserKeyStatusLabel(false);
       }
 
+      const genSelect = document.getElementById('modelGenSelect');
+      const assistSelect = document.getElementById('modelAssistSelect');
+      
+      if (genSelect) {
+        localStorage.setItem('anthropic_model_generation', genSelect.value);
+      }
+      if (assistSelect) {
+        localStorage.setItem('anthropic_model_assist', assistSelect.value);
+      }
+
       const badge = document.getElementById('configSavedBadge');
       if (badge) {
         badge.classList.add('show');
@@ -2188,6 +2232,14 @@
       const input = document.getElementById('apiKeyInput');
       if (input) input.value = '';
       localStorage.removeItem('anthropic_api_key');
+      localStorage.removeItem('anthropic_model_generation');
+      localStorage.removeItem('anthropic_model_assist');
+      
+      const genSelect = document.getElementById('modelGenSelect');
+      const assistSelect = document.getElementById('modelAssistSelect');
+      if (genSelect) genSelect.value = 'claude-3-5-sonnet-latest';
+      if (assistSelect) assistSelect.value = 'claude-3-5-sonnet-latest';
+      
       updateBrowserKeyStatusLabel(false);
       
       const badge = document.getElementById('configSavedBadge');

@@ -75,6 +75,7 @@ class Config(BaseModel):
     num_items: int = 4
     audiencia: str = "Juan Carlos Camelo"
     notas: str = ""
+    model: str = "claude-3-5-sonnet-latest"
 
 
 class DocCreate(BaseModel):
@@ -96,6 +97,7 @@ class AssistRequest(BaseModel):
     name: str
     content: str
     instruction: str
+    model: str = "claude-3-5-sonnet-latest"
 
 
 class AssistResponse(BaseModel):
@@ -161,7 +163,7 @@ async def generate_stream(cfg: Config, x_api_key: str = Header(default="")):
             current_tool_input = ""
 
             async with client.messages.stream(
-                model="claude-sonnet-4-5",
+                model=cfg.model or "claude-3-5-sonnet-latest",
                 max_tokens=4096,
                 system=system_prompt,
                 tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 10}],
@@ -344,7 +346,7 @@ async def assist_doc(body: AssistRequest, x_api_key: str = Header(default="")):
     
     try:
         message = await client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=body.model or "claude-3-5-sonnet-latest",
             max_tokens=4000,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}]
