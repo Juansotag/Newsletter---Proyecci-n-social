@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Newsletter Ejecutivo</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <meta name="description"
     content="Generador de newsletter ejecutivo personalizado para Juan Carlos Camelo, Universidad de La Sabana">
   <link rel="icon" href="assets/favicon.png">
@@ -864,6 +865,41 @@
         print-color-adjust: exact !important;
       }
     }
+
+    /* Markdown Preview Styles */
+    #ctxPreview h1, #ctxPreview h2, #ctxPreview h3 {
+      font-family: var(--font-display);
+      color: var(--c-blue-dark);
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+      font-style: italic;
+    }
+    #ctxPreview h1 { font-size: 1.4rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; }
+    #ctxPreview h2 { font-size: 1.2rem; }
+    #ctxPreview h3 { font-size: 1rem; }
+    #ctxPreview p { margin: 0.5rem 0; font-size: 0.88rem; line-height: 1.6; }
+    #ctxPreview ul, #ctxPreview ol { padding-left: 1.25rem; margin: 0.5rem 0; font-size: 0.88rem; }
+    #ctxPreview li { margin-bottom: 0.25rem; }
+    #ctxPreview code { font-family: var(--font-mono); background: var(--bg-main); padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.8rem; }
+    #ctxPreview pre { background: #fafbfd; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0.75rem 0; }
+    #ctxPreview pre code { background: none; padding: 0; font-size: 0.8rem; }
+    #ctxPreview blockquote { border-left: 3px solid var(--c-blue-light); margin: 0.75rem 0; padding-left: 0.75rem; color: var(--text-muted); font-style: italic; }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .editor-split-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 768px) {
+      .editor-grid, .editor-split-container {
+        grid-template-columns: 1fr !important;
+      }
+    }
   </style>
 </head>
 
@@ -983,28 +1019,64 @@
 
       <div class="ctx-grid">
         <!-- LISTA DE ARCHIVOS -->
-        <section class="card">
-          <h2>Documentos</h2>
-          <ul class="file-list" id="fileList">
-            <li style="color:var(--text-muted);font-size:.85rem;padding:.4rem;">Cargando…</li>
-          </ul>
+        <section class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0;">Documentos</h2>
+            <div style="display: flex; gap: 0.35rem;">
+              <button class="btn-ghost btn-sm" onclick="createNewDocPrompt()" title="Nuevo Documento">+ Doc</button>
+              <button class="btn-ghost btn-sm" onclick="createNewFolderPrompt()" title="Nueva Carpeta">+ Carpeta</button>
+            </div>
+          </div>
+          <div id="fileTreeContainer" style="overflow-y: auto; max-height: 550px;">
+            <ul class="file-list" id="fileList" style="padding-left: 0; margin: 0;">
+              <li style="color:var(--text-muted);font-size:.85rem;padding:.4rem;">Cargando…</li>
+            </ul>
+          </div>
         </section>
 
         <!-- EDITOR -->
-        <section class="card" id="ctxEditorCard">
+        <section class="card" id="ctxEditorCard" style="max-width: 100%;">
           <div class="ctx-empty-msg" id="ctxEditorEmpty">
             Selecciona un documento a la izquierda para editarlo.
           </div>
           <div id="ctxEditorBody" style="display:none;">
-            <div class="ctx-editor-header">
-              <span class="ctx-editor-title" id="ctxEditorTitle">—</span>
-              <div class="ctx-editor-actions">
-                <span class="saved-badge" id="savedBadge">✓ Guardado</span>
+            <div class="ctx-editor-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <span class="ctx-editor-title" id="ctxEditorTitle" style="font-weight: 700; font-size: 1.1rem; color: var(--c-blue-dark);">—</span>
+              <div class="ctx-editor-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="saved-badge" id="savedBadge">Guardado</span>
                 <button class="btn-ghost btn-sm" onclick="saveCtxFile()">Guardar</button>
+                <button class="btn-ghost btn-sm" id="btnDeleteDoc" onclick="deleteCurrentDoc()" style="border-color: var(--c-red); color: var(--c-red);">Eliminar</button>
               </div>
             </div>
-            <textarea id="ctxTextarea" spellcheck="false"></textarea>
-            <p class="ctx-hint">Los cambios se aplican inmediatamente al system prompt del agente.</p>
+
+            <!-- Campos del Documento -->
+            <div class="editor-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+              <div>
+                <label for="ctxFolderInput" class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted);">Carpeta (vacío = raíz)</label>
+                <input type="text" id="ctxFolderInput" placeholder="Raíz" style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
+              </div>
+              <div>
+                <label for="ctxNameInput" class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted);">Nombre del archivo (con extensión .md)</label>
+                <input type="text" id="ctxNameInput" placeholder="documento.md" style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
+              </div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <label for="ctxDescInput" class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted);">Descripción (guía de uso para el agente)</label>
+              <input type="text" id="ctxDescInput" placeholder="Ej: Información general sobre el proyecto." style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
+            </div>
+
+            <!-- Split Editor & Preview -->
+            <div class="editor-split-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem;">Editor Markdown</label>
+                <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd;" oninput="updateMarkdownPreview()"></textarea>
+              </div>
+              <div>
+                <label class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem;">Vista previa</label>
+                <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);"></div>
+              </div>
+            </div>
+            <p class="ctx-hint" style="margin-top: 0.75rem; font-size: 0.77rem; color: var(--text-muted);">Los cambios se aplican de inmediato en las generaciones de newsletters.</p>
           </div>
         </section>
       </div>
@@ -1347,35 +1419,105 @@
     // ══════════════════════════════════════════════════════
     let _ctxCurrentFile = null;
 
+    // ══════════════════════════════════════════════════════
+    // EDITOR DE CONTEXTO (SUPABASE CRUD)
+    // ══════════════════════════════════════════════════════
+    let _docsList = []; // Array containing all documents metadata
+    let _ctxCurrentFileId = null;
+    let _currentDocOriginal = null;
+
     async function loadCtxFiles() {
-      const list = document.getElementById('fileList');
-      list.innerHTML = '<li style="color:var(--text-muted);font-size:.85rem;padding:.4rem;">Cargando…</li>';
+      const container = document.getElementById('fileList');
+      container.innerHTML = '<li style="color:var(--text-muted);font-size:.85rem;padding:.4rem;">Cargando…</li>';
       try {
-        const r = await fetch('/api/context');
+        const r = await fetch('/api/docs');
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const { files } = await r.json();
-        if (!files.length) {
-          list.innerHTML = '<li style="color:var(--text-muted);font-size:.85rem;padding:.4rem;">No hay archivos.</li>';
-          return;
-        }
-        list.innerHTML = files.map(f => `
-      <li class="file-item${_ctxCurrentFile === f.filename ? ' active' : ''}"
-          id="fi-${f.filename.replace(/\W/g, '_')}"
-          onclick="loadCtxFile('${esc(f.filename)}')">
-        <span class="file-name">${esc(f.filename)}</span>
-        <span class="file-meta">${(f.size / 1024).toFixed(1)} KB - ${esc(f.modified)}</span>
-      </li>`).join('');
+        _docsList = files;
+        
+        renderFileTree();
       } catch (e) {
-        list.innerHTML = `<li style="color:var(--c-red);font-size:.85rem;padding:.4rem;">${esc(e.message)}</li>`;
+        container.innerHTML = `<li style="color:var(--c-red);font-size:.85rem;padding:.4rem;">${esc(e.message)}</li>`;
       }
     }
 
-    async function loadCtxFile(filename) {
-      _ctxCurrentFile = filename;
+    const _collapsedFolders = {};
 
-      // Resaltar fila activa
+    function renderFileTree() {
+      const container = document.getElementById('fileList');
+      if (!container) return;
+      
+      if (!_docsList.length) {
+        container.innerHTML = '<li style="color:var(--text-muted);font-size:.85rem;padding:.4rem;">No hay archivos.</li>';
+        return;
+      }
+      
+      const folders = {};
+      _docsList.forEach(doc => {
+        const f = doc.folder || '';
+        if (!folders[f]) folders[f] = [];
+        folders[f].push(doc);
+      });
+      
+      const sortedFolderNames = Object.keys(folders).sort((a, b) => {
+        if (a === '') return -1;
+        if (b === '') return 1;
+        return a.localeCompare(b);
+      });
+      
+      let html = '';
+      sortedFolderNames.forEach(folder => {
+        const docs = folders[folder];
+        const folderLabel = folder || 'Raíz (/)';
+        const isCollapsed = _collapsedFolders[folder] === true;
+        const displayStyle = isCollapsed ? 'none' : 'block';
+        const arrow = isCollapsed ? '▶' : '▼';
+        const folderIcon = folder ? '📁' : '📦';
+        
+        html += `
+          <li style="margin-bottom: 0.5rem; list-style: none;">
+            <div onclick="toggleFolder('${esc(folder)}')" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; font-weight: 700; font-size: 0.85rem; color: var(--c-blue-dark); cursor: pointer; user-select: none;">
+              <span style="font-size: 0.65rem; color: var(--text-muted); width: 10px; display: inline-block;">${arrow}</span>
+              <span>${folderIcon} ${esc(folderLabel)}</span>
+            </div>
+            <ul id="folder-group-${esc(folder).replace(/\W/g, '_')}" style="display: ${displayStyle}; list-style: none; padding-left: 1rem; margin: 0; border-left: 1px dashed var(--border-color);">
+        `;
+        
+        docs.sort((a, b) => a.sort_order - b.sort_order);
+        
+        docs.forEach(f => {
+          const isActive = _ctxCurrentFileId === f.id;
+          const systemBadge = f.is_system_prompt ? ' <span style="font-size: 0.65rem; background: var(--c-blue-tint); color: var(--c-blue-light); padding: 0.1rem 0.35rem; border-radius: 4px; font-weight: 700;">PROMPT</span>' : '';
+          html += `
+            <li class="file-item${isActive ? ' active' : ''}" 
+                id="fi-${f.id}" 
+                onclick="loadCtxFile('${f.id}')"
+                style="padding: 0.45rem 0.65rem; font-size: 0.82rem; margin-top: 0.15rem; display: flex; align-items: center; justify-content: space-between; border-radius: 6px; cursor: pointer;">
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📄 ${esc(f.name)}${systemBadge}</span>
+            </li>
+          `;
+        });
+        
+        html += `
+            </ul>
+          </li>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+
+    function toggleFolder(folder) {
+      _collapsedFolders[folder] = !_collapsedFolders[folder];
+      renderFileTree();
+    }
+
+    async function loadCtxFile(id) {
+      _ctxCurrentFileId = id;
+
       document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
-      document.getElementById(`fi-${filename.replace(/\W/g, '_')}`)?.classList.add('active');
+      const activeEl = document.getElementById(`fi-${id}`);
+      if (activeEl) activeEl.classList.add('active');
 
       const empty = document.getElementById('ctxEditorEmpty');
       const body = document.getElementById('ctxEditorBody');
@@ -1384,11 +1526,28 @@
       document.getElementById('ctxEditorTitle').textContent = 'Cargando…';
 
       try {
-        const r = await fetch(`/api/context/${encodeURIComponent(filename)}`);
+        const r = await fetch(`/api/docs/${id}`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const { content } = await r.json();
-        document.getElementById('ctxEditorTitle').textContent = filename;
-        document.getElementById('ctxTextarea').value = content;
+        const doc = await r.json();
+        
+        _currentDocOriginal = doc;
+        
+        document.getElementById('ctxEditorTitle').textContent = doc.name;
+        document.getElementById('ctxFolderInput').value = doc.folder || '';
+        document.getElementById('ctxNameInput').value = doc.name;
+        document.getElementById('ctxDescInput').value = doc.description || '';
+        document.getElementById('ctxTextarea').value = doc.content || '';
+        
+        const deleteBtn = document.getElementById('btnDeleteDoc');
+        if (deleteBtn) {
+          deleteBtn.style.display = doc.is_system_prompt ? 'none' : 'inline-block';
+        }
+        
+        document.getElementById('ctxFolderInput').disabled = doc.is_system_prompt;
+        document.getElementById('ctxNameInput').disabled = doc.is_system_prompt;
+
+        updateMarkdownPreview();
+
         document.getElementById('savedBadge').classList.remove('show');
         body.style.display = 'block';
       } catch (e) {
@@ -1398,22 +1557,150 @@
     }
 
     async function saveCtxFile() {
-      if (!_ctxCurrentFile) return;
-      const content = document.getElementById('ctxTextarea')?.value;
-      if (content == null) return;
+      if (!_ctxCurrentFileId) return;
+      const folder = document.getElementById('ctxFolderInput').value.trim();
+      const name = document.getElementById('ctxNameInput').value.trim();
+      const description = document.getElementById('ctxDescInput').value.trim();
+      const content = document.getElementById('ctxTextarea').value;
+
+      if (!name) {
+        alert('El nombre del archivo es obligatorio');
+        return;
+      }
+
       try {
-        const r = await fetch(`/api/context/${encodeURIComponent(_ctxCurrentFile)}`, {
+        const r = await fetch(`/api/docs/${_ctxCurrentFileId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content })
+          body: JSON.stringify({ folder, name, description, content })
         });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${r.status}`);
+        }
+        
         const badge = document.getElementById('savedBadge');
-        badge.classList.add('show');
-        setTimeout(() => badge.classList.remove('show'), 3000);
-        loadCtxFiles(); // refrescar metadata
+        if (badge) {
+          badge.classList.add('show');
+          setTimeout(() => badge.classList.remove('show'), 3000);
+        }
+        
+        await loadCtxFiles();
       } catch (e) {
         alert(`Error al guardar: ${e.message}`);
+      }
+    }
+
+    async function createNewDocPrompt() {
+      const name = prompt("Ingrese el nombre del nuevo documento (ej. '08_convocatorias.md'):");
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (!trimmed) {
+        alert("El nombre no puede estar vacío");
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder: "",
+            name: trimmed,
+            content: `# ${trimmed}\n\nEscribe el contenido aquí...`,
+            description: ""
+          })
+        });
+        
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${response.status}`);
+        }
+        
+        const newDoc = await response.json();
+        await loadCtxFiles();
+        loadCtxFile(newDoc.id);
+      } catch (e) {
+        alert(`Error al crear documento: ${e.message}`);
+      }
+    }
+
+    async function createNewFolderPrompt() {
+      const folder = prompt("Nombre de la nueva carpeta (ej. 'perfiles'):");
+      if (folder === null) return;
+      const folderTrimmed = folder.trim();
+      if (!folderTrimmed) {
+        alert("El nombre de la carpeta no puede estar vacío");
+        return;
+      }
+      
+      const name = prompt(`Ingrese el nombre del primer documento para la carpeta '${folderTrimmed}':`, "01_documento.md");
+      if (name === null) return;
+      const nameTrimmed = name.trim();
+      if (!nameTrimmed) {
+        alert("El nombre del archivo no puede estar vacío");
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder: folderTrimmed,
+            name: nameTrimmed,
+            content: `# ${nameTrimmed}\n\nDocumento creado en la carpeta ${folderTrimmed}.`,
+            description: ""
+          })
+        });
+        
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${response.status}`);
+        }
+        
+        const newDoc = await response.json();
+        await loadCtxFiles();
+        loadCtxFile(newDoc.id);
+      } catch (e) {
+        alert(`Error al crear la carpeta: ${e.message}`);
+      }
+    }
+
+    async function deleteCurrentDoc() {
+      if (!_ctxCurrentFileId) return;
+      if (!confirm(`¿Está seguro de que desea eliminar el documento '${_currentDocOriginal.name}'? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/docs/${_ctxCurrentFileId}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || `HTTP ${response.status}`);
+        }
+        
+        _ctxCurrentFileId = null;
+        _currentDocOriginal = null;
+        
+        document.getElementById('ctxEditorBody').style.display = 'none';
+        document.getElementById('ctxEditorEmpty').style.display = 'block';
+        document.getElementById('ctxEditorEmpty').textContent = 'Selecciona un documento a la izquierda para editarlo.';
+        
+        await loadCtxFiles();
+      } catch (e) {
+        alert(`Error al eliminar: ${e.message}`);
+      }
+    }
+
+    function updateMarkdownPreview() {
+      const markdownText = document.getElementById('ctxTextarea').value;
+      const previewEl = document.getElementById('ctxPreview');
+      if (previewEl && window.marked) {
+        previewEl.innerHTML = window.marked.parse(markdownText);
       }
     }
 
