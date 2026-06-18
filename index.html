@@ -902,32 +902,36 @@
     }
 
     .editor-flex-container {
-      display: flex;
-      gap: 1rem;
-      align-items: stretch;
       margin-top: 1rem;
       width: 100%;
+      position: relative;
     }
     .editor-main-pane {
-      flex: 1;
+      width: 100%;
       min-width: 0;
     }
     .ai-assistant-panel {
-      width: 350px;
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      width: 360px;
+      height: 520px;
+      max-height: calc(100% - 2rem);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       background: #ffffff;
       display: flex;
       flex-direction: column;
-      box-shadow: var(--shadow);
-      flex-shrink: 0;
+      box-shadow: 0 8px 32px rgba(0, 32, 91, 0.25);
+      z-index: 50;
+      transition: all 0.25s ease;
     }
-    @media (max-width: 1024px) {
-      .editor-flex-container {
-        flex-direction: column;
-      }
+    @media (max-width: 768px) {
       .ai-assistant-panel {
-        width: 100%;
+        width: calc(100% - 2rem);
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
       }
     }
     .ai-chat-header {
@@ -1158,7 +1162,7 @@
         </section>
 
         <!-- EDITOR -->
-        <section class="card" id="ctxEditorCard" style="max-width: 100%;">
+        <section class="card" id="ctxEditorCard" style="max-width: 100%; min-width: 0; width: 100%; position: relative; min-height: 650px;">
           <div class="ctx-empty-msg" id="ctxEditorEmpty">
             Selecciona un documento a la izquierda para editarlo.
           </div>
@@ -1208,8 +1212,8 @@
                 <!-- Editor Content Area -->
                 <div id="editorContentArea">
                   <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd; display: block;" oninput="updateMarkdownPreview()"></textarea>
-                  <div id="previewContainer" style="display: none;">
-                    <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);"></div>
+                  <div id="previewContainer" style="display: none; max-width: 100%; overflow-x: hidden;">
+                    <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary); max-width: 100%; word-wrap: break-word; overflow-wrap: break-word;"></div>
                   </div>
                 </div>
               </div>
@@ -1981,9 +1985,13 @@
       const name = document.getElementById('ctxNameInput').value;
       
       try {
+        const apiKey = localStorage.getItem('anthropic_api_key') || '';
         const r = await fetch('/api/docs/assist', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey
+          },
           body: JSON.stringify({ name, content, instruction })
         });
         
@@ -2044,9 +2052,13 @@
       if (saveBtn) saveBtn.disabled = true;
       
       try {
+        const apiKey = localStorage.getItem('anthropic_api_key') || '';
         const r = await fetch('/api/docs/assist', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey
+          },
           body: JSON.stringify({
             name,
             content,

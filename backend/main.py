@@ -308,10 +308,10 @@ def delete_doc(doc_id: str):
 
 
 @app.post("/api/docs/assist", response_model=AssistResponse)
-async def assist_doc(body: AssistRequest):
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+async def assist_doc(body: AssistRequest, x_api_key: str = Header(default="")):
+    api_key = x_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        raise HTTPException(status_code=400, detail="Falta ANTHROPIC_API_KEY en el servidor")
+        raise HTTPException(status_code=400, detail="Falta la clave API de Anthropic (ANTHROPIC_API_KEY)")
         
     client = anthropic.AsyncAnthropic(api_key=api_key)
     
