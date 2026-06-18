@@ -1015,17 +1015,23 @@
         <h1>Editor de Contexto</h1>
         <p>Modifica los documentos que usa el agente para personalizar búsquedas y tono. Los cambios se aplican al
           siguiente newsletter sin reiniciar el servidor.</p>
+        
+        <!-- Alerta de advertencia del prompt del sistema -->
+        <div style="background: #FFF9EB; border-left: 4px solid var(--c-yellow); padding: 1rem; border-radius: 8px; font-size: 0.85rem; margin-top: 1rem; max-width: 800px; line-height: 1.45;">
+          <p style="margin: 0; font-weight: 700; color: #8A6D3B;">Atención sobre el Prompt del Sistema</p>
+          <p style="margin: 0.35rem 0 0; color: #8A6D3B; opacity: 0.9;">
+            El documento <strong>00_sistema_instrucciones.md</strong> contiene las directrices principales de comportamiento del agente y la plantilla del prompt. Modificar este archivo de manera incorrecta puede alterar significativamente la calidad del newsletter o hacer que la generación falle. Procede con precaución al editarlo.
+          </p>
+        </div>
       </div>
 
       <div class="ctx-grid">
         <!-- LISTA DE ARCHIVOS -->
         <section class="card" style="display: flex; flex-direction: column; gap: 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="margin: 0;">Documentos</h2>
-            <div style="display: flex; gap: 0.35rem;">
-              <button class="btn-ghost btn-sm" onclick="createNewDocPrompt()" title="Nuevo Documento">+ Doc</button>
-              <button class="btn-ghost btn-sm" onclick="createNewFolderPrompt()" title="Nueva Carpeta">+ Carpeta</button>
-            </div>
+          <h2 style="margin: 0;">Documentos</h2>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn" onclick="createNewDocPrompt()" style="margin-top: 0; padding: 0.55rem 0.75rem; font-size: 0.8rem; background: var(--c-blue-dark); color: #ffffff; border: none; border-radius: 6px; cursor: pointer; flex: 1; font-weight: 600;">+ Documento</button>
+            <button class="btn" onclick="createNewFolderPrompt()" style="margin-top: 0; padding: 0.55rem 0.75rem; font-size: 0.8rem; background: var(--c-blue-dark); color: #ffffff; border: none; border-radius: 6px; cursor: pointer; flex: 1; font-weight: 600;">+ Carpeta</button>
           </div>
           <div id="fileTreeContainer" style="overflow-y: auto; max-height: 550px;">
             <ul class="file-list" id="fileList" style="padding-left: 0; margin: 0;">
@@ -1065,14 +1071,16 @@
               <input type="text" id="ctxDescInput" placeholder="Ej: Información general sobre el proyecto." style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
             </div>
 
-            <!-- Split Editor & Preview -->
-            <div class="editor-split-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-              <div>
-                <label class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem;">Editor Markdown</label>
-                <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd;" oninput="updateMarkdownPreview()"></textarea>
-              </div>
-              <div>
-                <label class="label-section" style="margin-top: 0; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem;">Vista previa</label>
+            <!-- Editor Tabs -->
+            <div style="display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem;">
+              <button type="button" id="editTabBtn" onclick="switchEditorTab('edit')" class="tab-btn active" style="padding: 0.5rem 1rem; font-size: 0.82rem; margin-bottom: -1px; background: none; border: none; cursor: pointer; border-bottom: 2px solid var(--c-blue-dark); color: var(--c-blue-dark); font-weight: 700;">Editar</button>
+              <button type="button" id="previewTabBtn" onclick="switchEditorTab('preview')" class="tab-btn" style="padding: 0.5rem 1rem; font-size: 0.82rem; margin-bottom: -1px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-weight: 600;">Vista Previa</button>
+            </div>
+
+            <!-- Editor Content Area -->
+            <div id="editorContentArea">
+              <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd; display: block;" oninput="updateMarkdownPreview()"></textarea>
+              <div id="previewContainer" style="display: none;">
                 <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);"></div>
               </div>
             </div>
@@ -1472,13 +1480,12 @@
         const isCollapsed = _collapsedFolders[folder] === true;
         const displayStyle = isCollapsed ? 'none' : 'block';
         const arrow = isCollapsed ? '▶' : '▼';
-        const folderIcon = folder ? '📁' : '📦';
         
         html += `
           <li style="margin-bottom: 0.5rem; list-style: none;">
             <div onclick="toggleFolder('${esc(folder)}')" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; font-weight: 700; font-size: 0.85rem; color: var(--c-blue-dark); cursor: pointer; user-select: none;">
               <span style="font-size: 0.65rem; color: var(--text-muted); width: 10px; display: inline-block;">${arrow}</span>
-              <span>${folderIcon} ${esc(folderLabel)}</span>
+              <span>${esc(folderLabel)}</span>
             </div>
             <ul id="folder-group-${esc(folder).replace(/\W/g, '_')}" style="display: ${displayStyle}; list-style: none; padding-left: 1rem; margin: 0; border-left: 1px dashed var(--border-color);">
         `;
@@ -1493,7 +1500,7 @@
                 id="fi-${f.id}" 
                 onclick="loadCtxFile('${f.id}')"
                 style="padding: 0.45rem 0.65rem; font-size: 0.82rem; margin-top: 0.15rem; display: flex; align-items: center; justify-content: space-between; border-radius: 6px; cursor: pointer;">
-              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📄 ${esc(f.name)}${systemBadge}</span>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(f.name)}${systemBadge}</span>
             </li>
           `;
         });
@@ -1546,7 +1553,7 @@
         document.getElementById('ctxFolderInput').disabled = doc.is_system_prompt;
         document.getElementById('ctxNameInput').disabled = doc.is_system_prompt;
 
-        updateMarkdownPreview();
+        switchEditorTab('edit');
 
         document.getElementById('savedBadge').classList.remove('show');
         body.style.display = 'block';
@@ -1701,6 +1708,41 @@
       const previewEl = document.getElementById('ctxPreview');
       if (previewEl && window.marked) {
         previewEl.innerHTML = window.marked.parse(markdownText);
+      }
+    }
+
+    function switchEditorTab(tab) {
+      const textarea = document.getElementById('ctxTextarea');
+      const previewContainer = document.getElementById('previewContainer');
+      const editBtn = document.getElementById('editTabBtn');
+      const previewBtn = document.getElementById('previewTabBtn');
+      
+      if (!textarea || !previewContainer || !editBtn || !previewBtn) return;
+      
+      if (tab === 'edit') {
+        textarea.style.display = 'block';
+        previewContainer.style.display = 'none';
+        
+        editBtn.style.borderBottom = '2px solid var(--c-blue-dark)';
+        editBtn.style.color = 'var(--c-blue-dark)';
+        editBtn.style.fontWeight = '700';
+        
+        previewBtn.style.borderBottom = 'none';
+        previewBtn.style.color = 'var(--text-muted)';
+        previewBtn.style.fontWeight = '600';
+      } else {
+        textarea.style.display = 'none';
+        previewContainer.style.display = 'block';
+        
+        previewBtn.style.borderBottom = '2px solid var(--c-blue-dark)';
+        previewBtn.style.color = 'var(--c-blue-dark)';
+        previewBtn.style.fontWeight = '700';
+        
+        editBtn.style.borderBottom = 'none';
+        editBtn.style.color = 'var(--text-muted)';
+        editBtn.style.fontWeight = '600';
+        
+        updateMarkdownPreview();
       }
     }
 
