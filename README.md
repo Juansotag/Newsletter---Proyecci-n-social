@@ -14,7 +14,7 @@ de verdad; si cambia lo que necesita el destinatario, se edita ahí.
 ## Arrancar en local
 
 ```bash
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 cp .env.example .env          # y poner la ANTHROPIC_API_KEY
 uvicorn backend.main:app --reload --port 8000
 # Abrir http://localhost:8000
