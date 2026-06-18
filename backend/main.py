@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # carga .env antes de leer variables de entorno
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -109,11 +109,11 @@ def extract_json(text: str) -> dict:
 
 # ─── Streaming endpoint ────────────────────────────────────────────────────────
 @app.post("/api/generate/stream")
-async def generate_stream(cfg: Config):
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+async def generate_stream(cfg: Config, x_api_key: str = Header(default="")):
+    api_key = x_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         async def _err():
-            yield f"data: {json.dumps({'type':'error','message':'Falta ANTHROPIC_API_KEY'})}\n\n"
+            yield f"data: {json.dumps({'type':'error','message':'Falta la clave API de Anthropic (ANTHROPIC_API_KEY)'})}\n\n"
         return StreamingResponse(_err(), media_type="text/event-stream")
 
     # Refrescar el cliente con la clave actual (por si cambió en runtime)
@@ -178,6 +178,12 @@ async def generate_stream(cfg: Config):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ─── Config status endpoint ────────────────────────────────────────────────────
+@app.get("/api/config/status")
+def get_config_status():
+    return {"has_api_key": bool(os.environ.get("ANTHROPIC_API_KEY", ""))}
 
 
 # ─── Context file endpoints ────────────────────────────────────────────────────
