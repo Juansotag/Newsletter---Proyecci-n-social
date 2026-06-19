@@ -12,7 +12,7 @@ Railway Cron Job: configurar en el dashboard de Railway con el comando anterior,
 import os, json, asyncio, datetime
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 import httpx
 import anthropic
@@ -20,6 +20,7 @@ from supabase import create_client, ClientOptions
 from croniter import croniter
 
 from backend.email_render import render_email_html
+from backend.main import resolve_doc_references
 
 
 # ── Clientes ──────────────────────────────────────────────────────────────────
@@ -33,19 +34,24 @@ supabase = create_client(_supabase_url, _supabase_key, options=_options) if (_su
 
 _anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
 _resend_key    = os.environ.get("RESEND_API_KEY", "")
-_from_email    = os.environ.get("RESEND_FROM_EMAIL", "newsletter@tudominio.com")
+_from_email    = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 
 
 # ── Generación sin streaming ──────────────────────────────────────────────────
-async def generate_once(config: dict) -> tuple[dict, list[str]]:
+async def generate_once(config: dict, api_key: str = "") -> tuple[dict, list[str]]:
     """
     Genera el newsletter completo sin streaming.
     Retorna (newsletter_json, search_queries).
     """
     import re as _re
 
+    # Leer la clave en el momento de la llamada (no en import)
+    key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        raise ValueError("ANTHROPIC_API_KEY no configurada")
+
     client = anthropic.AsyncAnthropic(
-        api_key=_anthropic_key,
+        api_key=key,
         http_client=httpx.AsyncClient(verify=False),
     )
 
@@ -68,6 +74,8 @@ async def generate_once(config: dict) -> tuple[dict, list[str]]:
             folder = doc.get("folder", "")
             name   = doc.get("name", "")
             cont   = doc.get("content", "").strip()
+            # Resolver referencias @doc.md con detección de ciclos
+            cont   = resolve_doc_references(cont, loading_stack=[name])
             desc   = doc.get("description", "").strip()
             path   = f"{folder}/{name}" if folder else name
             use_l  = f"USO: {desc}\n" if desc else ""

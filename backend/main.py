@@ -7,7 +7,7 @@ Newsletter Ejecutivo GovLab — backend
 import os, json, datetime, glob, re as _re
 from dotenv import load_dotenv
 
-load_dotenv()  # carga .env antes de leer variables de entorno
+load_dotenv(override=True)  # carga .env antes de leer variables de entorno
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -514,7 +514,7 @@ def _send_email(to: str, subject: str, html: str) -> str:
     if not _resend:
         raise RuntimeError("Paquete 'resend' no instalado")
     resend_key  = os.environ.get("RESEND_API_KEY", "")
-    from_email  = os.environ.get("RESEND_FROM_EMAIL", "newsletter@tudominio.com")
+    from_email  = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
     if not resend_key:
         raise RuntimeError("RESEND_API_KEY no configurada")
     _resend.api_key = resend_key
@@ -639,7 +639,7 @@ async def run_schedule_now(schedule_id: str, x_api_key: str = Header(default="")
     # Generar newsletter (reutiliza la misma lógica que el stream pero en modo sync)
     try:
         from backend.run_due import generate_once as _gen
-        newsletter, queries = await _gen(config)
+        newsletter, queries = await _gen(config, api_key=api_key)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando newsletter: {e}")
 
