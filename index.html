@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Newsletter Ejecutivo</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <meta name="description"
     content="Generador de newsletter ejecutivo personalizado para Juan Carlos Camelo, Universidad de La Sabana">
   <link rel="icon" href="assets/favicon.png">
@@ -1115,6 +1116,8 @@
     <div class="tab-bar-inner">
       <button class="tab-btn active" id="tab-nl-btn" onclick="switchTab('nl')">Newsletter</button>
       <button class="tab-btn" id="tab-ctx-btn" onclick="switchTab('ctx')">Editor de Contexto</button>
+      <button class="tab-btn" id="tab-hist-btn" onclick="switchTab('hist')">Historial</button>
+      <button class="tab-btn" id="tab-send-btn" onclick="switchTab('send')">Envío</button>
       <button class="tab-btn" id="tab-config-btn" onclick="switchTab('config')">Configuración</button>
     </div>
   </div>
@@ -1404,6 +1407,131 @@
     </main>
   </div>
 
+  <!-- ══════════════ PANEL HISTORIAL ══════════════ -->
+  <div id="panel-hist" class="tab-panel">
+    <main>
+      <div class="hero">
+        <h1>Historial de Newsletters</h1>
+        <p>Todos los reportes generados. Selecciona uno para verlo o descargarlo como PDF.</p>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 300px 1fr; align-items: start;">
+        <!-- Lista de reportes -->
+        <section class="card" style="padding: 1.25rem; align-self: start; max-height: 80vh; overflow-y: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="margin: 0;">Reportes</h2>
+            <button class="btn-ghost" onclick="loadHistorial()" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;" title="Recargar">↻</button>
+          </div>
+          <div id="histList">
+            <p style="color: var(--text-muted); font-size: .85rem; padding: 0.5rem 0;">Cargando…</p>
+          </div>
+        </section>
+
+        <!-- Vista del reporte seleccionado -->
+        <section class="card" id="histOutput" style="min-height: 300px;">
+          <div class="empty" id="histEmpty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+            </svg>
+            <div>Selecciona un reporte de la lista para verlo.</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════ PANEL ENVÍO ══════════════ -->
+  <div id="panel-send" class="tab-panel">
+    <main>
+      <div class="hero">
+        <h1>Envío programado</h1>
+        <p>Programa un newsletter recurrente. Se generará automáticamente y se enviará al correo configurado.</p>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 380px 1fr; align-items: start;">
+
+        <!-- Formulario nueva programación -->
+        <section class="card" style="padding: 1.5rem; align-self: start;">
+          <h2 style="margin-top:0;">Nueva programación</h2>
+
+          <div style="display:flex;flex-direction:column;gap:.85rem;">
+            <div>
+              <label class="label-section" style="margin-top:0;">Nombre</label>
+              <input id="sendName" type="text" placeholder="Ej: Newsletter semanal" style="width:100%;">
+            </div>
+            <div>
+              <label class="label-section" style="margin-top:0;">Email destino</label>
+              <input id="sendEmail" type="email" placeholder="juancarlos@unisabana.edu.co" style="width:100%;">
+            </div>
+            <div>
+              <label class="label-section" style="margin-top:0;">Frecuencia</label>
+              <select id="sendFreqPreset" onchange="_syncCronInput()" style="width:100%;font-size:.85rem;padding:.45rem .65rem;">
+                <option value="0 7 * * 1">Lunes 7:00 am (semanal)</option>
+                <option value="0 7 * * 5">Viernes 7:00 am (semanal)</option>
+                <option value="0 6 * * 5">Viernes 6:00 am (semanal)</option>
+                <option value="0 7 1 * *">Primer día del mes</option>
+                <option value="0 7 * * 1,3,5">L-M-V 7:00 am</option>
+                <option value="custom">Personalizado (cron)</option>
+              </select>
+            </div>
+            <div id="sendCronCustomRow" style="display:none;">
+              <label class="label-section" style="margin-top:0;">Expresión cron</label>
+              <input id="sendCron" type="text" placeholder="0 7 * * 1" style="width:100%;font-family:var(--font-mono);">
+              <span style="font-size:.72rem;color:var(--text-muted);">Formato: minuto hora día-mes mes día-semana</span>
+            </div>
+
+            <!-- Config del newsletter a generar -->
+            <details style="border:1px solid var(--border-color);border-radius:8px;padding:.65rem .85rem;">
+              <summary style="font-weight:600;font-size:.83rem;cursor:pointer;">Configuración del newsletter</summary>
+              <div style="display:flex;flex-direction:column;gap:.65rem;margin-top:.85rem;">
+                <div>
+                  <label class="label-section" style="margin-top:0;">Audiencia</label>
+                  <input id="sendAudiencia" type="text" value="Juan Carlos Camelo" style="width:100%;">
+                </div>
+                <div>
+                  <label class="label-section" style="margin-top:0;">Período (días)</label>
+                  <input id="sendPeriodo" type="number" value="7" min="1" max="30" style="width:100%;">
+                </div>
+                <div>
+                  <label class="label-section" style="margin-top:0;">Ítems</label>
+                  <input id="sendNumItems" type="number" value="4" min="1" max="10" style="width:100%;">
+                </div>
+                <div>
+                  <label class="label-section" style="margin-top:0;">Modelo</label>
+                  <select id="sendModel" style="width:100%;font-size:.85rem;padding:.45rem .65rem;">
+                    <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                    <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (más económico)</option>
+                    <option value="claude-opus-4-6">Claude Opus 4.6 (más potente)</option>
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <input type="checkbox" id="sendBuscarWeb" checked style="width:auto;">
+                  <label for="sendBuscarWeb" style="font-size:.83rem;">Buscar en internet</label>
+                </div>
+              </div>
+            </details>
+
+            <button class="btn" id="btnCreateSchedule" onclick="createSchedule()" style="margin-top:.25rem;">
+              Programar envío
+            </button>
+            <div id="sendCreateStatus" style="font-size:.8rem;"></div>
+          </div>
+        </section>
+
+        <!-- Lista de programaciones -->
+        <section class="card" style="padding:1.25rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h2 style="margin:0;">Programaciones activas</h2>
+            <button class="btn-ghost" onclick="loadSchedules()" style="font-size:.75rem;padding:.3rem .65rem;" title="Recargar">↻</button>
+          </div>
+          <div id="scheduleList">
+            <p style="color:var(--text-muted);font-size:.85rem;">Cargando…</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
   <!-- ══ FOOTER ══ -->
   <footer>
     <div class="footer-inner">
@@ -1422,8 +1550,10 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(`panel-${tab}`).classList.add('active');
       document.getElementById(`tab-${tab}-btn`).classList.add('active');
-      if (tab === 'ctx') loadCtxFiles();
+      if (tab === 'ctx')  loadCtxFiles();
       if (tab === 'config') loadConfigTab();
+      if (tab === 'hist') loadHistorial();
+      if (tab === 'send') loadSchedules();
     }
 
     // ══════════════════════════════════════════════════════
@@ -1545,6 +1675,7 @@
                 }
                 break;
               case 'done':
+                _currentReportId = evt.report_id || null;
                 renderNewsletter(evt.newsletter);
                 btn.disabled = false;
                 label.textContent = 'Generar newsletter';
@@ -1665,7 +1796,7 @@
       out.innerHTML = `
     <div class="toolbar">
       <span></span>
-      <button class="btn-ghost" onclick="window.print()">Descargar PDF</button>
+      <button class="btn-ghost" onclick="downloadPDF('output')">Descargar PDF</button>
     </div>
     <div class="nl-head">
       <div class="nl-kicker">Universidad de La Sabana</div>
@@ -1968,11 +2099,16 @@
     }
 
     function updateMarkdownPreview() {
-      const markdownText = document.getElementById('ctxTextarea').value;
+      const raw       = document.getElementById('ctxTextarea').value;
       const previewEl = document.getElementById('ctxPreview');
-      if (previewEl && window.marked) {
-        previewEl.innerHTML = window.marked.parse(markdownText);
-      }
+      if (!previewEl || !window.marked) return;
+
+      // Resaltar @referencias antes de parsear markdown
+      const processed = raw.replace(
+        /@([\w][\w\-\.]*\.md)/g,
+        '<strong style="color:#1a3a6b;">@$1</strong>'
+      );
+      previewEl.innerHTML = window.marked.parse(processed);
     }
 
     function switchEditorTab(tab) {
@@ -2367,6 +2503,400 @@
         _atHide();
       }
     });
+
+    // ══════════════════════════════════════════════════════
+    // ENVÍO PROGRAMADO — SCHEDULES
+    // ══════════════════════════════════════════════════════
+
+    /** Muestra/oculta el input de cron personalizado según el preset */
+    function _syncCronInput() {
+      const preset = document.getElementById('sendFreqPreset').value;
+      const row    = document.getElementById('sendCronCustomRow');
+      if (row) row.style.display = preset === 'custom' ? 'block' : 'none';
+    }
+
+    /** Retorna la expresión cron activa según el preset o el campo custom */
+    function _activeCron() {
+      const preset = document.getElementById('sendFreqPreset').value;
+      if (preset === 'custom') return (document.getElementById('sendCron').value || '').trim();
+      return preset;
+    }
+
+    /** Carga y renderiza la lista de schedules */
+    async function loadSchedules() {
+      const list = document.getElementById('scheduleList');
+      if (!list) return;
+      list.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;">Cargando…</p>';
+      try {
+        const r = await fetch('/api/schedules');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const { schedules } = await r.json();
+        renderScheduleList(schedules);
+      } catch (e) {
+        list.innerHTML = `<p style="color:var(--c-red);font-size:.82rem;">Error: ${esc(e.message)}</p>`;
+      }
+    }
+
+    /** Renderiza las tarjetas de cada schedule */
+    function renderScheduleList(schedules) {
+      const list = document.getElementById('scheduleList');
+      if (!list) return;
+      if (!schedules || !schedules.length) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;">No hay programaciones activas.</p>';
+        return;
+      }
+      list.innerHTML = schedules.map(s => {
+        const lastRun = s.last_run ? _fmtDate(s.last_run) : 'Nunca';
+        const nextRun = s.next_run ? _fmtDate(s.next_run) : '—';
+        const badge   = s.active
+          ? '<span style="background:#e6f4ea;color:#1b7a3c;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px;">Activo</span>'
+          : '<span style="background:#fce8e8;color:#b42f2f;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px;">Pausado</span>';
+        return `<div style="border:1px solid var(--border-color);border-radius:10px;padding:1rem 1.1rem;margin-bottom:.65rem;background:#fff;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                <span style="font-weight:700;font-size:.88rem;color:var(--c-blue-dark);">${esc(s.name)}</span>
+                ${badge}
+              </div>
+              <div style="font-size:.76rem;color:var(--text-muted);margin-top:.3rem;">
+                ${esc(s.email_to)} · ${esc(_humanizeCron(s.cron))}
+              </div>
+              <div style="font-size:.73rem;color:var(--text-muted);margin-top:.2rem;">
+                Último envío: ${lastRun} · Próximo: ${nextRun}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap;">
+            <button class="btn" onclick="runScheduleNow('${s.id}', this)"
+                    style="font-size:.78rem;padding:.35rem .8rem;">Enviar ahora</button>
+            <button class="btn-ghost" onclick="toggleScheduleItem('${s.id}')"
+                    style="font-size:.78rem;padding:.35rem .7rem;">${s.active ? 'Pausar' : 'Activar'}</button>
+            <button class="btn-ghost" onclick="deleteScheduleItem('${s.id}')"
+                    style="font-size:.78rem;padding:.35rem .7rem;border-color:var(--c-red);color:var(--c-red);">Eliminar</button>
+          </div>
+          <div id="sched-status-${s.id}" style="font-size:.78rem;margin-top:.4rem;"></div>
+        </div>`;
+      }).join('');
+    }
+
+    /** Construye el payload de config para el schedule a partir del formulario */
+    function _buildScheduleConfig() {
+      return {
+        tipo:         'ejecutivo',
+        ejes:         [],
+        periodo_dias: parseInt(document.getElementById('sendPeriodo').value) || 7,
+        num_items:    parseInt(document.getElementById('sendNumItems').value) || 4,
+        audiencia:    document.getElementById('sendAudiencia').value.trim() || 'Juan Carlos Camelo',
+        notas:        '',
+        model:        document.getElementById('sendModel').value || 'claude-sonnet-4-6',
+        buscar_web:   document.getElementById('sendBuscarWeb').checked,
+        usar_contexto: true,
+      };
+    }
+
+    /** Crea una nueva programación */
+    async function createSchedule() {
+      const name     = document.getElementById('sendName').value.trim();
+      const email    = document.getElementById('sendEmail').value.trim();
+      const cron     = _activeCron();
+      const statusEl = document.getElementById('sendCreateStatus');
+      const btn      = document.getElementById('btnCreateSchedule');
+
+      if (!name)  { statusEl.style.color = 'var(--c-red)'; statusEl.textContent = 'Falta el nombre.'; return; }
+      if (!email) { statusEl.style.color = 'var(--c-red)'; statusEl.textContent = 'Falta el email destino.'; return; }
+      if (!cron)  { statusEl.style.color = 'var(--c-red)'; statusEl.textContent = 'Falta la expresión cron.'; return; }
+
+      btn.disabled = true;
+      statusEl.style.color = 'var(--text-muted)';
+      statusEl.textContent = 'Creando…';
+
+      try {
+        const r = await fetch('/api/schedules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email_to: email, cron, config: _buildScheduleConfig() }),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${r.status}`);
+        }
+        statusEl.style.color = 'var(--c-green)';
+        statusEl.textContent = '✓ Programación creada.';
+        document.getElementById('sendName').value  = '';
+        document.getElementById('sendEmail').value = '';
+        await loadSchedules();
+      } catch (e) {
+        statusEl.style.color = 'var(--c-red)';
+        statusEl.textContent = `Error: ${e.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /** Dispara una generación + envío inmediato para el schedule dado */
+    async function runScheduleNow(id, btn) {
+      const statusEl = document.getElementById(`sched-status-${id}`);
+      if (btn) btn.disabled = true;
+      if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.textContent = 'Generando y enviando…'; }
+
+      const apiKey = localStorage.getItem('anthropic_api_key') || '';
+      try {
+        const r = await fetch(`/api/schedules/${id}/run`, {
+          method:  'POST',
+          headers: apiKey ? { 'X-Api-Key': apiKey } : {},
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+
+        if (data.email_error) {
+          if (statusEl) {
+            statusEl.style.color = 'var(--c-yellow)';
+            statusEl.textContent = `Newsletter generado pero error de email: ${data.email_error}`;
+          }
+        } else {
+          if (statusEl) {
+            statusEl.style.color = 'var(--c-green)';
+            statusEl.textContent = `✓ Enviado correctamente. Reporte guardado en historial.`;
+          }
+        }
+        await loadSchedules();
+      } catch (e) {
+        if (statusEl) { statusEl.style.color = 'var(--c-red)'; statusEl.textContent = `Error: ${e.message}`; }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    /** Activa/desactiva un schedule */
+    async function toggleScheduleItem(id) {
+      try {
+        const r = await fetch(`/api/schedules/${id}/toggle`, { method: 'PATCH' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        await loadSchedules();
+      } catch (e) {
+        alert(`Error: ${e.message}`);
+      }
+    }
+
+    /** Elimina un schedule con confirmación */
+    async function deleteScheduleItem(id) {
+      if (!confirm('¿Eliminar esta programación?')) return;
+      try {
+        const r = await fetch(`/api/schedules/${id}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        await loadSchedules();
+      } catch (e) {
+        alert(`Error: ${e.message}`);
+      }
+    }
+
+    /** Convierte una expresión cron a texto legible */
+    function _humanizeCron(cron) {
+      const map = {
+        '0 7 * * 1':     'Lunes 7:00 am',
+        '0 7 * * 5':     'Viernes 7:00 am',
+        '0 6 * * 5':     'Viernes 6:00 am',
+        '0 7 1 * *':     'Día 1 del mes',
+        '0 7 * * 1,3,5': 'L-M-V 7:00 am',
+        '*/15 * * * *':  'Cada 15 min',
+      };
+      return map[cron] || cron;
+    }
+
+    // ══════════════════════════════════════════════════════
+    // HISTORIAL DE REPORTES
+    // ══════════════════════════════════════════════════════
+    let _currentReportId = null;   // ID del reporte activo (newsletter tab)
+    let _histActiveId    = null;   // ID seleccionado en el panel Historial
+
+    /** Carga la lista de reportes desde /api/reports */
+    async function loadHistorial() {
+      const list = document.getElementById('histList');
+      if (!list) return;
+      list.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:.5rem 0;">Cargando…</p>';
+      try {
+        const r = await fetch('/api/reports');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const { reports } = await r.json();
+        renderHistorialList(reports);
+      } catch (e) {
+        list.innerHTML = `<p style="color:var(--c-red);font-size:.82rem;">${esc(e.message)}</p>`;
+      }
+    }
+
+    /** Renderiza la lista de ítems en el panel izquierdo del Historial */
+    function renderHistorialList(reports) {
+      const list = document.getElementById('histList');
+      if (!list) return;
+      if (!reports || !reports.length) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:.5rem 0;">Aún no hay reportes generados.</p>';
+        return;
+      }
+      list.innerHTML = reports.map(r => {
+        const ejes = (r.config && r.config.ejes) ? r.config.ejes.slice(0,2).join(', ') : '';
+        const isActive = r.id === _histActiveId;
+        return `<div id="hist-item-${r.id}"
+          onclick="loadHistorialReport('${r.id}')"
+          style="padding:.65rem .75rem; border-radius:8px; cursor:pointer; margin-bottom:.4rem;
+                 border:1px solid ${isActive ? 'var(--c-blue-light)' : 'var(--border-color)'};
+                 background:${isActive ? 'var(--c-blue-tint)' : '#fff'};
+                 transition:all .12s;">
+          <div style="font-weight:600;font-size:.82rem;color:var(--c-blue-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${esc(r.titulo || 'Sin título')}
+          </div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;">
+            ${_fmtDate(r.created_at)} · <span style="text-transform:capitalize">${esc(r.origen)}</span>
+          </div>
+          ${ejes ? `<div style="font-size:.71rem;color:var(--text-muted);margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(ejes)}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    /** Carga el detalle de un reporte y lo renderiza en la vista derecha */
+    async function loadHistorialReport(id) {
+      _histActiveId = id;
+      // Resaltar ítem activo en la lista
+      document.querySelectorAll('[id^="hist-item-"]').forEach(el => {
+        const isThis = el.id === `hist-item-${id}`;
+        el.style.background = isThis ? 'var(--c-blue-tint)' : '#fff';
+        el.style.borderColor = isThis ? 'var(--c-blue-light)' : 'var(--border-color)';
+      });
+
+      const out = document.getElementById('histOutput');
+      out.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:200px;gap:.75rem;color:var(--text-muted);font-size:.88rem;">
+        <span class="spinner"></span> Cargando reporte…</div>`;
+
+      try {
+        const r = await fetch(`/api/reports/${id}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const report = await r.json();
+
+        // Reutilizar renderNewsletter pero apuntando a histOutput
+        const tmp = document.createElement('div');
+        const savedOut = document.getElementById('output');
+
+        // Renderizar en el panel de historial
+        out.innerHTML = '';
+        const toolbar = document.createElement('div');
+        toolbar.className = 'toolbar';
+        toolbar.innerHTML = `
+          <span style="font-size:.8rem;color:var(--text-muted);">${_fmtDate(report.created_at)} · ${esc(report.origen)}</span>
+          <div style="display:flex;gap:.5rem;">
+            <button class="btn-ghost" onclick="downloadPDF('histOutput')" style="font-size:.82rem;">Descargar PDF</button>
+            <button class="btn-ghost" onclick="deleteReport('${id}')" style="font-size:.82rem;border-color:var(--c-red);color:var(--c-red);">Eliminar</button>
+          </div>`;
+        out.appendChild(toolbar);
+
+        const nlDiv = document.createElement('div');
+        nlDiv.id = '__hist_nl_tmp';
+        out.appendChild(nlDiv);
+
+        // Trick: renderNewsletter escribe en #output; redirect temporalmente
+        const origOut = document.getElementById('output');
+        origOut.__histRedirect = true;
+        // Build newsletter HTML manually to avoid hijacking #output
+        const d = report.newsletter;
+        let cifrasHtml = '';
+        if (d.cifras && d.cifras.length) {
+          const cards = d.cifras.map(c => `
+            <div class="cifra-card">
+              <div class="cifra-dato">${esc(c.dato)}</div>
+              <div class="cifra-ctx">${esc(c.contexto || '')}</div>
+              ${c.url ? `<div class="cifra-src"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.fuente || c.url)}</a></div>`
+                      : c.fuente ? `<div class="cifra-src">${esc(c.fuente)}</div>` : ''}
+            </div>`).join('');
+          cifrasHtml = `<div class="nl-cifras"><p class="nl-cifras-title">Cifras importantes del sector</p><div class="cifras-grid">${cards}</div></div>`;
+        }
+        const itemsHtml = (d.items || []).map(it => `
+          <div class="nl-item">
+            ${it.eje ? `<div class="nl-eje">${esc(it.eje)}</div>` : ''}
+            <h3>${esc(it.titular || '')}</h3>
+            <p>${esc(it.resumen || '')}</p>
+            ${it.por_que_importa ? `<div class="nl-why"><b>Por qué importa:</b> ${esc(it.por_que_importa)}</div>` : ''}
+            <p class="nl-src">Fuente: ${it.url
+              ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.fuente || it.url)}</a>`
+              : esc(it.fuente || '—')}</p>
+          </div>`).join('');
+        const oppsHtml = (d.oportunidades && d.oportunidades.length) ? `
+          <div class="nl-opps">
+            <h4>Oportunidades accionables</h4>
+            <ul>${d.oportunidades.map(o => {
+              if (typeof o === 'string') return `<li>${esc(o)}</li>`;
+              const src = o.url
+                ? `<a href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.fuente || o.url)}</a>`
+                : o.fuente ? esc(o.fuente) : '';
+              return `<li>${esc(o.texto || o.text || '')}${src ? ` <span class="nl-opp-src">— ${src}</span>` : ''}</li>`;
+            }).join('')}</ul>
+          </div>` : '';
+
+        nlDiv.innerHTML = `
+          <div class="nl-head">
+            <div class="nl-kicker">Universidad de La Sabana</div>
+            <div class="nl-title">${esc(d.titulo || 'Newsletter Ejecutivo')}</div>
+            <div class="nl-meta">${esc(d.fecha || '')}${d.contexto ? ' - ' + esc(d.contexto) : ''}</div>
+          </div>
+          ${cifrasHtml}${itemsHtml}${oppsHtml}`;
+
+      } catch (e) {
+        out.innerHTML = `<div style="padding:2rem;color:var(--c-red);">Error: ${esc(e.message)}</div>`;
+      }
+    }
+
+    /** Elimina un reporte y recarga la lista */
+    async function deleteReport(id) {
+      if (!confirm('¿Eliminar este reporte del historial? Esta acción no se puede deshacer.')) return;
+      try {
+        const r = await fetch(`/api/reports/${id}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        _histActiveId = null;
+        document.getElementById('histOutput').innerHTML = `
+          <div class="empty" id="histEmpty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+            </svg>
+            <div>Selecciona un reporte de la lista para verlo.</div>
+          </div>`;
+        await loadHistorial();
+      } catch (e) {
+        alert(`Error al eliminar: ${e.message}`);
+      }
+    }
+
+    /** Descarga el contenido del elemento como PDF usando html2pdf.js */
+    function downloadPDF(containerId) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      if (!window.html2pdf) {
+        alert('La librería de PDF no está disponible. Verifica tu conexión a internet.');
+        return;
+      }
+      // Determinar título para el nombre del archivo
+      const titleEl = el.querySelector('.nl-title');
+      const title = titleEl ? titleEl.textContent.trim().substring(0, 50) : 'newsletter';
+      const filename = `${title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+
+      const opt = {
+        margin:      [10, 12, 10, 12],
+        filename,
+        image:       { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:   { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      html2pdf().set(opt).from(el).save();
+    }
+
+    /** Formatea una fecha ISO a string legible en español */
+    function _fmtDate(iso) {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('es-CO', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        });
+      } catch { return iso; }
+    }
 
     // ══════════════════════════════════════════════════════
     // CONFIGURACIÓN DE API KEY (LOCALSTORAGE)

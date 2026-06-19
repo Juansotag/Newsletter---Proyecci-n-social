@@ -13,8 +13,19 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from typing import Optional
 import anthropic
 from supabase import create_client
+try:
+    from croniter import croniter as _croniter
+except ImportError:
+    _croniter = None
+try:
+    import resend as _resend
+except ImportError:
+    _resend = None
+
+from backend.email_render import render_email_html
 
 app = FastAPI(title="Newsletter Ejecutivo GovLab")
 
@@ -37,55 +48,78 @@ if _supabase_url and _supabase_key:
     supabase_client = create_client(_supabase_url, _supabase_key, options=_options)
 
 # ─── Contexto institucional (Supabase) ──────────────────────────────────────────
-def resolve_doc_references(content: str, already_loading: str = "") -> str:
+def resolve_doc_references(content: str, loading_stack: list[str] | None = None) -> str:
     """
-    Reemplaza referencias @nombre_doc.md dentro del contenido de un documento
-    por el contenido completo del doc referenciado (un solo nivel, sin recursión).
+    Reemplaza referencias @nombre-doc.md dentro del contenido de un documento
+    por el contenido completo del doc referenciado.
 
-    - Si el doc referenciado no existe: deja texto [Referencia no encontrada: ...]
-    - Si el doc se referencia a sí mismo: lo ignora silenciosamente.
+    - loading_stack: pila de nombres de docs en resolución en este momento.
+      Se usa para detectar referencias circulares en cadena (A→B→A).
+    - Resuelve referencias dentro de los docs referenciados (recursivo),
+      pero corta cualquier ciclo detectado en la pila.
     - Docs con tag_context='excluded' no se resuelven aunque sean referenciados.
     """
+    if loading_stack is None:
+        loading_stack = []
+
     if not supabase_client:
         return content
 
-    refs = _re.findall(r'@([\w\-\.]+\.md)', content)
+    refs = _re.findall(r'@([\w][\w\-\.]*\.md)', content)
     if not refs:
         return content
 
-    for ref_name in set(refs):
-        if ref_name == already_loading:
+    for ref_name in dict.fromkeys(refs):   # orden de aparición, sin duplicados
+        placeholder = f"@{ref_name}"
+
+        # Referencia circular: el doc referenciado ya está en la pila
+        if ref_name in loading_stack:
             content = content.replace(
-                f"@{ref_name}",
-                f"[auto-referencia ignorada: {ref_name}]"
+                placeholder,
+                f"[Referencia circular ignorada: {ref_name}]"
             )
             continue
+
         try:
             resp = supabase_client.table("documents").select(
                 "name, content, description, folder, tag_context"
             ).eq("name", ref_name).eq("is_system_prompt", False).execute()
 
-            if resp.data:
-                doc = resp.data[0]
-                # No resolver docs excluidos aunque sean referenciados explícitamente
-                if (doc.get("tag_context") or "always").lower() == "excluded":
-                    content = content.replace(
-                        f"@{ref_name}",
-                        f"[Documento excluido del contexto: {ref_name}]"
-                    )
-                    continue
-                ref_desc = doc.get("description", "").strip()
-                ref_cont = doc.get("content", "").strip()
-                ref_fold = doc.get("folder", "")
-                ref_path = f"{ref_fold}/{ref_name}" if ref_fold else ref_name
-                use_line = f"USO: {ref_desc}\n" if ref_desc else ""
-                injected = f"\n\n#### [Referenciado: {ref_path}]\n{use_line}{ref_cont}\n"
-                content  = content.replace(f"@{ref_name}", injected)
-            else:
+            if not resp.data:
                 content = content.replace(
-                    f"@{ref_name}",
+                    placeholder,
                     f"[Referencia no encontrada: {ref_name}]"
                 )
+                continue
+
+            doc = resp.data[0]
+            tag = (doc.get("tag_context") or "always").lower()
+
+            if tag == "excluded":
+                content = content.replace(
+                    placeholder,
+                    f"[Documento excluido del contexto: {ref_name}]"
+                )
+                continue
+
+            ref_content     = doc.get("content", "").strip()
+            ref_description = doc.get("description", "").strip()
+            ref_folder      = doc.get("folder", "")
+            ref_path        = f"{ref_folder}/{ref_name}" if ref_folder else ref_name
+            use_line        = f"USO: {ref_description}\n" if ref_description else ""
+
+            # Resolver referencias dentro del doc referenciado
+            # con la pila actualizada para detectar ciclos
+            new_stack   = loading_stack + [ref_name]
+            ref_content = resolve_doc_references(ref_content, new_stack)
+
+            injected = (
+                f"\n\n#### [Documento referenciado: {ref_path}]\n"
+                f"{use_line}"
+                f"{ref_content}\n"
+            )
+            content = content.replace(placeholder, injected)
+
         except Exception as e:
             print(f"Error resolviendo referencia @{ref_name}: {e}")
 
@@ -111,7 +145,7 @@ def load_contexto_docs_db() -> str:
             description = doc.get("description", "").strip()
 
             # Resolver referencias @nombre_doc.md dentro del contenido
-            content = resolve_doc_references(content, already_loading=name)
+            content = resolve_doc_references(content, loading_stack=[name])
 
             path     = f"{folder}/{name}" if folder else name
             use_line = f"USO: {description}\n" if description else ""
@@ -174,6 +208,21 @@ class AssistRequest(BaseModel):
     content: str
     instruction: str
     model: str = "claude-haiku-4-5-20251001"
+
+
+class ScheduleCreate(BaseModel):
+    name: str
+    config: dict
+    email_to: str
+    cron: str   # '0 7 * * 1'
+
+
+class ScheduleUpdate(BaseModel):
+    name: Optional[str] = None
+    config: Optional[dict] = None
+    email_to: Optional[str] = None
+    cron: Optional[str] = None
+    active: Optional[bool] = None
 
 
 class AssistResponse(BaseModel):
@@ -242,6 +291,7 @@ async def generate_stream(cfg: Config, x_api_key: str = Header(default="")):
         try:
             full_text          = ""
             search_count       = 0
+            search_queries     = []   # para guardar en reports
             current_block_type = ""
             current_tool_input = ""
 
@@ -279,14 +329,30 @@ async def generate_stream(cfg: Config, x_api_key: str = Header(default="")):
                                 ti = json.loads(current_tool_input)
                                 q  = ti.get("query", "")
                                 if q:
+                                    search_queries.append(q)
                                     yield f"data: {json.dumps({'type':'search_query','query':q})}\n\n"
                             except Exception:
                                 pass
 
-            # Parsear JSON final
+            # Parsear JSON final y guardar reporte
             try:
                 data = extract_json(full_text)
-                yield f"data: {json.dumps({'type':'done','newsletter':data})}\n\n"
+                # Guardar en Supabase reports
+                report_id = None
+                if supabase_client:
+                    try:
+                        rep = supabase_client.table("reports").insert({
+                            "titulo": data.get("titulo", "Newsletter sin título"),
+                            "origen": "manual",
+                            "config": cfg.dict(),
+                            "newsletter": data,
+                            "search_queries": search_queries,
+                        }).execute()
+                        if rep.data:
+                            report_id = rep.data[0]["id"]
+                    except Exception as save_err:
+                        print(f"Error guardando reporte en Supabase: {save_err}")
+                yield f"data: {json.dumps({'type':'done','newsletter':data,'report_id':report_id})}\n\n"
             except json.JSONDecodeError as e:
                 yield f"data: {json.dumps({'type':'error','message':f'JSON inválido: {e}'})}\n\n"
 
@@ -391,6 +457,239 @@ def delete_doc(doc_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Reports endpoints (Historial) ──────────────────────────────────────────────────
+@app.get("/api/reports")
+def list_reports():
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        response = supabase_client.table("reports").select(
+            "id, created_at, titulo, origen, config"
+        ).order("created_at", desc=True).execute()
+        return {"reports": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/{report_id}")
+def get_report(report_id: str):
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        response = supabase_client.table("reports").select("*").eq("id", report_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Reporte no encontrado")
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/reports/{report_id}")
+def delete_report(report_id: str):
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        supabase_client.table("reports").delete().eq("id", report_id).execute()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Helpers de scheduling ─────────────────────────────────────────────────
+def _calc_next_run(cron_expr: str) -> str:
+    """Retorna el próximo datetime UTC para la expresión cron dada."""
+    if not _croniter:
+        raise HTTPException(status_code=500, detail="croniter no instalado")
+    now = datetime.datetime.utcnow()
+    nxt = _croniter(cron_expr, now).get_next(datetime.datetime)
+    return nxt.isoformat() + "Z"
+
+
+def _send_email(to: str, subject: str, html: str) -> str:
+    """Envía un correo vía Resend. Retorna el ID del email."""
+    if not _resend:
+        raise RuntimeError("Paquete 'resend' no instalado")
+    resend_key  = os.environ.get("RESEND_API_KEY", "")
+    from_email  = os.environ.get("RESEND_FROM_EMAIL", "newsletter@tudominio.com")
+    if not resend_key:
+        raise RuntimeError("RESEND_API_KEY no configurada")
+    _resend.api_key = resend_key
+    resp = _resend.Emails.send({
+        "from":    from_email,
+        "to":      [t.strip() for t in to.split(",")],
+        "subject": subject,
+        "html":    html,
+    })
+    return resp.get("id", "")
+
+
+# ─── Schedules endpoints ─────────────────────────────────────────────────────
+@app.get("/api/schedules")
+def list_schedules():
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        resp = supabase_client.table("schedules").select("*").order("created_at", desc=True).execute()
+        return {"schedules": resp.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/schedules")
+def create_schedule(body: ScheduleCreate):
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        next_run = _calc_next_run(body.cron)
+        data = {
+            "name":     body.name,
+            "config":   body.config,
+            "email_to": body.email_to,
+            "cron":     body.cron,
+            "next_run": next_run,
+            "active":   True,
+        }
+        resp = supabase_client.table("schedules").insert(data).execute()
+        if not resp.data:
+            raise HTTPException(status_code=500, detail="Error al crear schedule")
+        return resp.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/schedules/{schedule_id}")
+def update_schedule(schedule_id: str, body: ScheduleUpdate):
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        update = {k: v for k, v in body.dict().items() if v is not None}
+        if not update:
+            raise HTTPException(status_code=400, detail="Sin campos para actualizar")
+        if "cron" in update:
+            update["next_run"] = _calc_next_run(update["cron"])
+        resp = supabase_client.table("schedules").update(update).eq("id", schedule_id).execute()
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Schedule no encontrado")
+        return resp.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/schedules/{schedule_id}")
+def delete_schedule(schedule_id: str):
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        supabase_client.table("schedules").delete().eq("id", schedule_id).execute()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/schedules/{schedule_id}/toggle")
+def toggle_schedule(schedule_id: str):
+    """Activa/desactiva un schedule."""
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        cur = supabase_client.table("schedules").select("active").eq("id", schedule_id).execute()
+        if not cur.data:
+            raise HTTPException(status_code=404, detail="Schedule no encontrado")
+        new_active = not cur.data[0]["active"]
+        resp = supabase_client.table("schedules").update({"active": new_active}).eq("id", schedule_id).execute()
+        return resp.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/schedules/{schedule_id}/run")
+async def run_schedule_now(schedule_id: str, x_api_key: str = Header(default="")):
+    """Disparo manual: genera, envía email y registra reporte con origen='programado'."""
+    if not supabase_client:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+    try:
+        cur = supabase_client.table("schedules").select("*").eq("id", schedule_id).execute()
+        if not cur.data:
+            raise HTTPException(status_code=404, detail="Schedule no encontrado")
+        sched = cur.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    api_key = x_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="Falta ANTHROPIC_API_KEY")
+
+    config  = sched.get("config", {})
+    email   = sched.get("email_to", "")
+    cron    = sched.get("cron", "0 7 * * 1")
+    name    = sched.get("name", "Schedule")
+
+    # Generar newsletter (reutiliza la misma lógica que el stream pero en modo sync)
+    try:
+        from backend.run_due import generate_once as _gen
+        newsletter, queries = await _gen(config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando newsletter: {e}")
+
+    titulo  = newsletter.get("titulo", name)
+    subject = f"Newsletter GovLab — {titulo}"
+    html    = render_email_html(newsletter, subject=subject)
+
+    # Enviar email
+    email_id = ""
+    resend_error = ""
+    if email:
+        try:
+            email_id = _send_email(email, subject, html)
+        except Exception as e:
+            resend_error = str(e)
+            print(f"[run_now] Error enviando email: {e}")
+
+    # Guardar reporte
+    report_id = None
+    try:
+        rep = supabase_client.table("reports").insert({
+            "titulo":         titulo,
+            "origen":         "programado",
+            "config":         config,
+            "newsletter":     newsletter,
+            "search_queries": queries,
+        }).execute()
+        if rep.data:
+            report_id = rep.data[0]["id"]
+    except Exception as e:
+        print(f"[run_now] Error guardando reporte: {e}")
+
+    # Actualizar next_run
+    try:
+        next_run = _calc_next_run(cron)
+        now_iso  = datetime.datetime.utcnow().isoformat() + "Z"
+        supabase_client.table("schedules").update({
+            "last_run": now_iso,
+            "next_run": next_run,
+        }).eq("id", schedule_id).execute()
+    except Exception as e:
+        print(f"[run_now] Error actualizando next_run: {e}")
+
+    return {
+        "ok":          True,
+        "report_id":   report_id,
+        "email_id":    email_id,
+        "email_error": resend_error,
+        "titulo":      titulo,
+    }
 
 
 @app.post("/api/docs/assist", response_model=AssistResponse)
