@@ -4,7 +4,7 @@ Newsletter Ejecutivo GovLab — backend
   /api/context          — GET: lista archivos de Contexto/
   /api/context/{file}   — GET: lee un archivo / PUT: guarda un archivo
 """
-import os, json, datetime, glob
+import os, json, datetime, glob, re as _re
 from dotenv import load_dotenv
 
 load_dotenv()  # carga .env antes de leer variables de entorno
@@ -21,30 +21,99 @@ app = FastAPI(title="Newsletter Ejecutivo GovLab")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ─── Clientes Anthropic ────────────────────────────────────────────────────────
+import httpx
 _api_key     = os.environ.get("ANTHROPIC_API_KEY", "")
-async_client = anthropic.AsyncAnthropic(api_key=_api_key)
+async_client = anthropic.AsyncAnthropic(api_key=_api_key, http_client=httpx.AsyncClient(verify=False))
 
 # ─── Cliente Supabase ─────────────────────────────────────────────────────────
 _supabase_url = os.environ.get("SUPABASE_URL", "")
 _supabase_key = os.environ.get("SUPABASE_SECRET_KEY", "") or os.environ.get("SUPABASE_SERVICE_KEY", "")
 supabase_client = None
 if _supabase_url and _supabase_key:
-    supabase_client = create_client(_supabase_url, _supabase_key)
+    import httpx
+    from supabase import ClientOptions
+    # Se desactiva la verificación SSL (verify=False) para evitar errores causados por proxies corporativos (ej. Zscaler)
+    _options = ClientOptions(httpx_client=httpx.Client(verify=False))
+    supabase_client = create_client(_supabase_url, _supabase_key, options=_options)
 
 # ─── Contexto institucional (Supabase) ──────────────────────────────────────────
+def resolve_doc_references(content: str, already_loading: str = "") -> str:
+    """
+    Reemplaza referencias @nombre_doc.md dentro del contenido de un documento
+    por el contenido completo del doc referenciado (un solo nivel, sin recursión).
+
+    - Si el doc referenciado no existe: deja texto [Referencia no encontrada: ...]
+    - Si el doc se referencia a sí mismo: lo ignora silenciosamente.
+    - Docs con tag_context='excluded' no se resuelven aunque sean referenciados.
+    """
+    if not supabase_client:
+        return content
+
+    refs = _re.findall(r'@([\w\-\.]+\.md)', content)
+    if not refs:
+        return content
+
+    for ref_name in set(refs):
+        if ref_name == already_loading:
+            content = content.replace(
+                f"@{ref_name}",
+                f"[auto-referencia ignorada: {ref_name}]"
+            )
+            continue
+        try:
+            resp = supabase_client.table("documents").select(
+                "name, content, description, folder, tag_context"
+            ).eq("name", ref_name).eq("is_system_prompt", False).execute()
+
+            if resp.data:
+                doc = resp.data[0]
+                # No resolver docs excluidos aunque sean referenciados explícitamente
+                if (doc.get("tag_context") or "always").lower() == "excluded":
+                    content = content.replace(
+                        f"@{ref_name}",
+                        f"[Documento excluido del contexto: {ref_name}]"
+                    )
+                    continue
+                ref_desc = doc.get("description", "").strip()
+                ref_cont = doc.get("content", "").strip()
+                ref_fold = doc.get("folder", "")
+                ref_path = f"{ref_fold}/{ref_name}" if ref_fold else ref_name
+                use_line = f"USO: {ref_desc}\n" if ref_desc else ""
+                injected = f"\n\n#### [Referenciado: {ref_path}]\n{use_line}{ref_cont}\n"
+                content  = content.replace(f"@{ref_name}", injected)
+            else:
+                content = content.replace(
+                    f"@{ref_name}",
+                    f"[Referencia no encontrada: {ref_name}]"
+                )
+        except Exception as e:
+            print(f"Error resolviendo referencia @{ref_name}: {e}")
+
+    return content
+
+
 def load_contexto_docs_db() -> str:
     if not supabase_client:
         return ""
     try:
-        response = supabase_client.table("documents").select("folder", "name", "content", "description").eq("is_system_prompt", False).order("sort_order").execute()
+        response = supabase_client.table("documents").select(
+            "folder, name, content, description, tag_context"
+        ).eq("is_system_prompt", False).order("sort_order").execute()
         docs = []
         for doc in response.data:
-            folder = doc.get("folder", "")
-            name = doc.get("name", "")
-            content = doc.get("content", "").strip()
+            tag = (doc.get("tag_context") or "always").strip().lower()
+            if tag == "excluded":
+                continue
+
+            folder      = doc.get("folder", "")
+            name        = doc.get("name", "")
+            content     = doc.get("content", "").strip()
             description = doc.get("description", "").strip()
-            
-            path = f"{folder}/{name}" if folder else name
+
+            # Resolver referencias @nombre_doc.md dentro del contenido
+            content = resolve_doc_references(content, already_loading=name)
+
+            path     = f"{folder}/{name}" if folder else name
             use_line = f"USO: {description}\n" if description else ""
             docs.append(f"### [{path}]\n{use_line}{content}")
         return "\n\n---\n\n".join(docs)
@@ -67,6 +136,11 @@ def build_system_prompt_db(ctx: str) -> str:
     return f"Eres el redactor del newsletter ejecutivo. Contexto institucional:\n\n{ctx}"
 
 
+# ─── Modelos válidos (whitelist) ─────────────────────────────────────────────
+VALID_MODELS = {"claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"}
+VALID_ASSIST_MODELS = {"claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"}
+
+
 # ─── Modelos ───────────────────────────────────────────────────────────────────
 class Config(BaseModel):
     tipo: str = "ejecutivo"
@@ -75,7 +149,9 @@ class Config(BaseModel):
     num_items: int = 4
     audiencia: str = "Juan Carlos Camelo"
     notas: str = ""
-    model: str = "claude-3-5-sonnet-latest"
+    model: str = "claude-sonnet-4-6"
+    buscar_web: bool = True
+    usar_contexto: bool = True
 
 
 class DocCreate(BaseModel):
@@ -97,7 +173,7 @@ class AssistRequest(BaseModel):
     name: str
     content: str
     instruction: str
-    model: str = "claude-3-5-sonnet-latest"
+    model: str = "claude-haiku-4-5-20251001"
 
 
 class AssistResponse(BaseModel):
@@ -109,13 +185,14 @@ def build_user_message(cfg: Config) -> str:
     hoy  = datetime.date.today().isoformat()
     ejes = ", ".join(cfg.ejes) if cfg.ejes else "todos los ejes prioritarios"
     num  = max(1, min(20, cfg.num_items))
+    search_instr = "Busca en internet, filtra y devuelve solo el JSON válido." if cfg.buscar_web else "Devuelve solo el JSON válido basándote únicamente en las notas proporcionadas por el usuario."
     return (
         f"Hoy es {hoy}. Genera un newsletter tipo '{cfg.tipo}' para: {cfg.audiencia}.\n"
         f"Ejes a cubrir: {ejes}.\n"
         f"Período: últimos {cfg.periodo_dias} días.\n"
         f"Número de ítems: {num}.\n"
         f"Notas del usuario: {cfg.notas or 'ninguna'}.\n"
-        f"Busca en internet, filtra y devuelve solo el JSON válido."
+        f"{search_instr}"
     )
 
 
@@ -149,11 +226,17 @@ async def generate_stream(cfg: Config, x_api_key: str = Header(default="")):
         return StreamingResponse(_err(), media_type="text/event-stream")
 
     # Refrescar el cliente con la clave actual (por si cambió en runtime)
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = anthropic.AsyncAnthropic(api_key=api_key, http_client=httpx.AsyncClient(verify=False))
 
     # Cargar contexto y prompt del sistema dinámicamente desde Supabase
-    context_docs = load_contexto_docs_db()
+    if cfg.usar_contexto:
+        context_docs = load_contexto_docs_db()
+    else:
+        context_docs = "No se incluye contexto institucional. Genera el boletín basándote únicamente en la información provista en las notas del usuario."
+        
     system_prompt = build_system_prompt_db(context_docs)
+
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 10}] if cfg.buscar_web else []
 
     async def event_generator():
         try:
@@ -162,11 +245,12 @@ async def generate_stream(cfg: Config, x_api_key: str = Header(default="")):
             current_block_type = ""
             current_tool_input = ""
 
+            model = cfg.model if cfg.model in VALID_MODELS else "claude-sonnet-4-6"
             async with client.messages.stream(
-                model=cfg.model or "claude-3-5-sonnet-latest",
+                model=model,
                 max_tokens=4096,
                 system=system_prompt,
-                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 10}],
+                tools=tools,
                 messages=[{"role": "user", "content": build_user_message(cfg)}],
             ) as stream:
                 async for event in stream:
@@ -315,7 +399,7 @@ async def assist_doc(body: AssistRequest, x_api_key: str = Header(default="")):
     if not api_key:
         raise HTTPException(status_code=400, detail="Falta la clave API de Anthropic (ANTHROPIC_API_KEY)")
         
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = anthropic.AsyncAnthropic(api_key=api_key, http_client=httpx.AsyncClient(verify=False))
     
     system_prompt = (
         "Eres un asistente experto de inteligencia artificial del GovLab.\n"
@@ -345,8 +429,9 @@ async def assist_doc(body: AssistRequest, x_api_key: str = Header(default="")):
     )
     
     try:
+        assist_model = body.model if body.model in VALID_ASSIST_MODELS else "claude-haiku-4-5-20251001"
         message = await client.messages.create(
-            model=body.model or "claude-3-5-sonnet-latest",
+            model=assist_model,
             max_tokens=4000,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}]

@@ -1021,6 +1021,76 @@
       border-color: var(--c-blue-light);
       color: var(--c-blue-dark);
     }
+
+    /* ── @ Mention Autocomplete ────────────────────────── */
+    .at-mention-wrapper {
+      position: relative;
+      display: block;
+    }
+    .at-mention-dropdown {
+      position: absolute;
+      z-index: 400;
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: 0 8px 36px rgba(0, 32, 91, 0.18);
+      max-height: 224px;
+      overflow-y: auto;
+      min-width: 270px;
+      max-width: 420px;
+      display: none;
+      animation: atDropIn 0.12s ease;
+    }
+    @keyframes atDropIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .at-mention-header {
+      padding: 0.45rem 0.85rem 0.3rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid #f0f2f5;
+    }
+    .at-mention-item {
+      padding: 0.5rem 0.85rem;
+      font-size: 0.81rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid #f6f7f9;
+      transition: background 0.08s;
+    }
+    .at-mention-item:last-child { border-bottom: none; }
+    .at-mention-item:hover,
+    .at-mention-item.at-active {
+      background: var(--c-blue-tint);
+      color: var(--c-blue-dark);
+    }
+    .at-mention-icon {
+      font-weight: 800;
+      color: var(--c-blue-light);
+      font-size: 0.88rem;
+      flex-shrink: 0;
+      width: 16px;
+      text-align: center;
+    }
+    .at-mention-name { font-weight: 600; }
+    .at-mention-folder {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-left: 0.2rem;
+    }
+    .at-mention-empty {
+      padding: 0.75rem 0.85rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
   </style>
 </head>
 
@@ -1211,7 +1281,13 @@
               <div class="editor-main-pane" id="editorMainPane">
                 <!-- Editor Content Area -->
                 <div id="editorContentArea">
-                  <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd; display: block;" oninput="updateMarkdownPreview()"></textarea>
+                  <div class="at-mention-wrapper">
+                    <textarea id="ctxTextarea" spellcheck="false" style="min-height: 480px; width: 100%; font-family: var(--font-mono); font-size: 0.82rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; resize: vertical; line-height: 1.6; background: #fafbfd; display: block;" oninput="updateMarkdownPreview()"></textarea>
+                    <!-- @ Mention dropdown -->
+                    <div id="atMentionDropdown" class="at-mention-dropdown">
+                      <div class="at-mention-header">Referenciar documento</div>
+                    </div>
+                  </div>
                   <div id="previewContainer" style="display: none; max-width: 100%; overflow-x: hidden;">
                     <div id="ctxPreview" style="min-height: 480px; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; overflow-y: auto; max-height: 600px; font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary); max-width: 100%; word-wrap: break-word; overflow-wrap: break-word;"></div>
                   </div>
@@ -1296,19 +1372,17 @@
           <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;">
             <label for="modelGenSelect" class="label-section" style="margin-top: 0;">Modelo para Generación de Newsletter</label>
             <select id="modelGenSelect" style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
-              <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet (Recomendado)</option>
-              <option value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
-              <option value="claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
-              <option value="claude-3-opus-latest">Claude 3.0 Opus</option>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recomendado)</option>
+              <option value="claude-opus-4-6">Claude Opus 4.6 (Más potente, más costo)</option>
+              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Más económico)</option>
             </select>
           </div>
           
           <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;">
             <label for="modelAssistSelect" class="label-section" style="margin-top: 0;">Modelo para Asistente de Contexto (Chatbot)</label>
             <select id="modelAssistSelect" style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
-              <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet (Recomendado)</option>
-              <option value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
-              <option value="claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
+              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Recomendado — económico)</option>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
             </select>
           </div>
 
@@ -1398,7 +1472,9 @@
         periodo_dias: Number(document.getElementById('periodo').value),
         num_items: num,
         audiencia: document.getElementById('audiencia').value,
-        notas: document.getElementById('notas').value
+        notas: document.getElementById('notas').value,
+        buscar_web: true,
+        usar_contexto: true
       };
     }
 
@@ -1407,7 +1483,7 @@
     // ══════════════════════════════════════════════════════
     async function generar() {
       const cfg = getConfig();
-      cfg.model = localStorage.getItem('anthropic_model_generation') || 'claude-3-5-sonnet-latest';
+      cfg.model = localStorage.getItem('anthropic_model_generation') || 'claude-sonnet-4-6';
       const btn = document.getElementById('generar');
       const label = document.getElementById('btnLabel');
 
@@ -2007,7 +2083,7 @@
       
       try {
         const apiKey = localStorage.getItem('anthropic_api_key') || '';
-        const model = localStorage.getItem('anthropic_model_assist') || 'claude-3-5-sonnet-latest';
+        const model = localStorage.getItem('anthropic_model_assist') || 'claude-haiku-4-5-20251001';
         const r = await fetch('/api/docs/assist', {
           method: 'POST',
           headers: { 
@@ -2050,70 +2126,10 @@
       }
     }
 
-    async function validateAndSaveCtxFile() {
-      if (!_ctxCurrentFileId) return;
-      
-      const folder = document.getElementById('ctxFolderInput').value.trim();
-      const name = document.getElementById('ctxNameInput').value.trim();
-      const description = document.getElementById('ctxDescInput').value.trim();
-      const content = document.getElementById('ctxTextarea').value;
-      
-      if (!name) {
-        alert('El nombre del archivo es obligatorio');
-        return;
-      }
-      
-      const panel = document.getElementById('aiAssistantPanel');
-      if (panel && panel.style.display === 'none') {
-        toggleAiAssistant();
-      }
-      
-      const loadingMsg = appendChatMessage('ai', 'Validando cambios con la IA...', 'loading');
-      
+    async function saveCtxFileDirect(folder, name, description, content) {
       const saveBtn = document.querySelector('button[onclick="validateAndSaveCtxFile()"]');
       if (saveBtn) saveBtn.disabled = true;
-      
       try {
-        const apiKey = localStorage.getItem('anthropic_api_key') || '';
-        const model = localStorage.getItem('anthropic_model_assist') || 'claude-3-5-sonnet-latest';
-        const r = await fetch('/api/docs/assist', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-API-Key': apiKey
-          },
-          body: JSON.stringify({
-            name,
-            content,
-            instruction: "Valida de manera crítica si el contenido del documento está en orden y es seguro guardar. Si es el prompt del sistema (00_sistema_instrucciones.md), valida exhaustivamente que la estructura JSON de la salida no haya sido alterada o rota. Indica explícitamente si hay algún problema de formato/estructura o si todo está correcto para guardar.",
-            model
-          })
-        });
-        
-        if (loadingMsg) loadingMsg.remove();
-        
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error(err.detail || err.message || `HTTP ${r.status}`);
-        }
-        
-        const data = await r.json();
-        
-        const responseText = data.response || '';
-        const isWarning = /error|inválido|incorrecto|dañará|peligro|no se puede|estructura rota|atención|problema|advertencia/i.test(responseText);
-        
-        if (isWarning) {
-          appendChatMessage('ai', responseText, 'warning');
-          const confirmSave = confirm(`El asistente de IA advierte un posible problema con los cambios:\n\n"${responseText}"\n\n¿Deseas guardar los cambios de todas formas?`);
-          if (!confirmSave) {
-            appendChatMessage('ai', 'Operación de guardado cancelada por el usuario.', 'warning');
-            if (saveBtn) saveBtn.disabled = false;
-            return;
-          }
-        } else {
-          appendChatMessage('ai', responseText, 'success');
-        }
-        
         const saveResponse = await fetch(`/api/docs/${_ctxCurrentFileId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -2130,17 +2146,227 @@
           badge.classList.add('show');
           setTimeout(() => badge.classList.remove('show'), 3000);
         }
-        
-        appendChatMessage('ai', '¡Cambios guardados correctamente!', 'success');
         await loadCtxFiles();
       } catch (e) {
-        if (loadingMsg) loadingMsg.remove();
-        appendChatMessage('ai', `Error al guardar/validar: ${e.message}`, 'warning');
-        alert(`Error: ${e.message}`);
+        alert(`Error al guardar: ${e.message}`);
       } finally {
         if (saveBtn) saveBtn.disabled = false;
       }
     }
+
+    async function validateAndSaveCtxFile() {
+      if (!_ctxCurrentFileId) return;
+      
+      const folder = document.getElementById('ctxFolderInput').value.trim();
+      const name = document.getElementById('ctxNameInput').value.trim();
+      const description = document.getElementById('ctxDescInput').value.trim();
+      const content = document.getElementById('ctxTextarea').value;
+      
+      if (!name) {
+        alert('El nombre del archivo es obligatorio');
+        return;
+      }
+      
+      const isSystemPrompt = _currentDocOriginal && _currentDocOriginal.is_system_prompt;
+      if (isSystemPrompt) {
+        const confirmSave = confirm(
+          "Atención: Está guardando el Prompt del Sistema (00_sistema_instrucciones.md).\n\n" +
+          "Le recomendamos consultar antes al Asistente de IA (Chatbot) para asegurarse de que el formato del JSON de salida no se haya roto.\n\n" +
+          "¿Desea guardar los cambios directamente de todas formas?"
+        );
+        if (!confirmSave) {
+          return;
+        }
+      }
+      
+      await saveCtxFileDirect(folder, name, description, content);
+    }
+
+    // ══════════════════════════════════════════════════════
+    // @ MENTION AUTOCOMPLETE — EDITOR DE CONTEXTO
+    // ══════════════════════════════════════════════════════
+    let _atActive = false;
+    let _atQuery  = '';
+    let _atStart  = -1;   // posición del @ en el textarea
+    let _atSelIdx = 0;
+
+    /** Documentos filtrados, excluyendo el doc actual (referencia circular) */
+    function _atFilterDocs(query) {
+      const curName = _currentDocOriginal ? _currentDocOriginal.name : null;
+      const q = query.toLowerCase();
+      return _docsList.filter(d => {
+        if (d.is_system_prompt) return false;
+        if (d.name === curName) return false;   // evitar referencia circular
+        if (!q) return true;
+        return d.name.toLowerCase().includes(q) ||
+               (d.folder || '').toLowerCase().includes(q);
+      });
+    }
+
+    /** Renderiza los ítems del dropdown */
+    function _atRender() {
+      const dd = document.getElementById('atMentionDropdown');
+      if (!dd) return;
+      const items = _atFilterDocs(_atQuery);
+
+      if (!items.length) {
+        dd.innerHTML =
+          '<div class="at-mention-header">Referenciar documento</div>' +
+          '<div class="at-mention-empty">Sin coincidencias</div>';
+        return;
+      }
+
+      dd.innerHTML =
+        '<div class="at-mention-header">Referenciar documento</div>' +
+        items.map((d, i) => {
+          const isActive = i === _atSelIdx;
+          const folder = d.folder ? `<span class="at-mention-folder">· ${esc(d.folder)}</span>` : '';
+          return `<div class="at-mention-item${isActive ? ' at-active' : ''}"
+            onmousedown="event.preventDefault(); _atConfirm(${i})"
+            onmouseover="_atSelIdx=${i}; _atRender()">
+            <span class="at-mention-icon">@</span>
+            <span>
+              <span class="at-mention-name">${esc(d.name)}</span>${folder}
+            </span>
+          </div>`;
+        }).join('');
+
+      // Asegurar que el ítem activo sea visible
+      const active = dd.querySelector('.at-active');
+      if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    /** Posiciona el dropdown en relación al cursor del textarea */
+    function _atPosition() {
+      const ta = document.getElementById('ctxTextarea');
+      const dd = document.getElementById('atMentionDropdown');
+      if (!ta || !dd) return;
+
+      const style = getComputedStyle(ta);
+      const lineHeight = parseFloat(style.lineHeight) || 21;
+      const paddingTop = parseFloat(style.paddingTop) || 12;
+
+      // Contar líneas hasta el cursor para aproximar Y
+      const textBefore = ta.value.substring(0, _atStart + 1);
+      const lines = textBefore.split('\n');
+      const lineIdx = lines.length - 1;
+      const approxTop = paddingTop + lineIdx * lineHeight - ta.scrollTop + lineHeight + 4;
+
+      // Aproximar X con la longitud de la última línea
+      const charWidth = 7.6; // ~0.82rem monospace
+      const lastLine = lines[lines.length - 1];
+      const approxLeft = Math.min(lastLine.length * charWidth, ta.offsetWidth - 290);
+
+      dd.style.top  = Math.max(4, approxTop) + 'px';
+      dd.style.left = Math.max(0, approxLeft) + 'px';
+    }
+
+    function _atShow() {
+      const dd = document.getElementById('atMentionDropdown');
+      if (!dd) return;
+      _atPosition();
+      dd.style.display = 'block';
+      _atRender();
+    }
+
+    function _atHide() {
+      const dd = document.getElementById('atMentionDropdown');
+      if (dd) {
+        dd.style.display = 'none';
+        dd.innerHTML = '<div class="at-mention-header">Referenciar documento</div>';
+      }
+      _atActive = false;
+      _atStart  = -1;
+      _atQuery  = '';
+      _atSelIdx = 0;
+    }
+
+    /** Inserta @nombre_doc.md en el textarea y cierra el dropdown */
+    function _atConfirm(idx) {
+      const items = _atFilterDocs(_atQuery);
+      if (!items[idx]) return;
+      const ta = document.getElementById('ctxTextarea');
+      const before   = ta.value.substring(0, _atStart);
+      const after     = ta.value.substring(_atStart + 1 + _atQuery.length);
+      const inserted  = '@' + items[idx].name;
+      ta.value = before + inserted + after;
+      const newPos = _atStart + inserted.length;
+      ta.setSelectionRange(newPos, newPos);
+      ta.focus();
+      updateMarkdownPreview();
+      _atHide();
+    }
+
+    /** Handler para el evento input del textarea */
+    function _atHandleInput() {
+      const ta  = document.getElementById('ctxTextarea');
+      const pos = ta.selectionStart;
+      const val = ta.value;
+
+      // Buscar @ hacia atrás desde el cursor sin cruzar newlines
+      let atPos = -1;
+      for (let i = pos - 1; i >= 0; i--) {
+        const ch = val[i];
+        if (ch === '@') { atPos = i; break; }
+        if (ch === '\n' || ch === '\r') break;
+        // Solo caracteres válidos en nombre de archivo entre @ y cursor
+        if (!/[\w\-\.]/.test(ch)) break;
+      }
+
+      if (atPos === -1) { if (_atActive) _atHide(); return; }
+
+      const query = val.substring(atPos + 1, pos);
+      // Rechazar si hay caracteres no válidos en el query
+      if (/[^\w\-\.]/.test(query)) { _atHide(); return; }
+
+      _atActive = true;
+      _atStart  = atPos;
+      _atQuery  = query;
+      _atSelIdx = 0;
+      _atShow();
+    }
+
+    /** Handler para keydown: navegación y confirmación con teclado */
+    function _atHandleKeydown(e) {
+      if (!_atActive) return;
+      const items = _atFilterDocs(_atQuery);
+      const len   = items.length;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _atSelIdx = len ? (_atSelIdx + 1) % len : 0;
+        _atRender();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _atSelIdx = len ? (_atSelIdx - 1 + len) % len : 0;
+        _atRender();
+      } else if ((e.key === 'Enter' || e.key === 'Tab') && len) {
+        e.preventDefault();
+        _atConfirm(_atSelIdx);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        _atHide();
+      }
+    }
+
+    // Conectar eventos al textarea cuando el DOM está listo
+    ;(function initAtMention() {
+      const ta = document.getElementById('ctxTextarea');
+      if (!ta) return;
+      ta.addEventListener('input', _atHandleInput);
+      ta.addEventListener('keydown', _atHandleKeydown);
+      // Ocultar al hacer scroll para reposicionar si es necesario
+      ta.addEventListener('scroll', function() { if (_atActive) _atPosition(); });
+    })();
+
+    // Cerrar dropdown al hacer clic fuera del textarea y del dropdown
+    document.addEventListener('mousedown', function(e) {
+      const dd = document.getElementById('atMentionDropdown');
+      if (!dd || !_atActive) return;
+      if (!dd.contains(e.target) && e.target.id !== 'ctxTextarea') {
+        _atHide();
+      }
+    });
 
     // ══════════════════════════════════════════════════════
     // CONFIGURACIÓN DE API KEY (LOCALSTORAGE)
@@ -2186,8 +2412,8 @@
       const input = document.getElementById('apiKeyInput');
       if (input) input.value = key;
       
-      const modelGen = localStorage.getItem('anthropic_model_generation') || 'claude-3-5-sonnet-latest';
-      const modelAssist = localStorage.getItem('anthropic_model_assist') || 'claude-3-5-sonnet-latest';
+      const modelGen = localStorage.getItem('anthropic_model_generation') || 'claude-sonnet-4-6';
+      const modelAssist = localStorage.getItem('anthropic_model_assist') || 'claude-haiku-4-5-20251001';
       
       const genSelect = document.getElementById('modelGenSelect');
       const assistSelect = document.getElementById('modelAssistSelect');
@@ -2237,8 +2463,8 @@
       
       const genSelect = document.getElementById('modelGenSelect');
       const assistSelect = document.getElementById('modelAssistSelect');
-      if (genSelect) genSelect.value = 'claude-3-5-sonnet-latest';
-      if (assistSelect) assistSelect.value = 'claude-3-5-sonnet-latest';
+      if (genSelect) genSelect.value = 'claude-sonnet-4-6';
+      if (assistSelect) assistSelect.value = 'claude-haiku-4-5-20251001';
       
       updateBrowserKeyStatusLabel(false);
       
@@ -2276,6 +2502,19 @@
       return String(s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Migración de modelos antiguos/inválidos en localStorage
+    const _oldModels = [
+      'claude-3-5-haiku-latest', 'claude-3-5-haiku-20241022',
+      'claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest',
+      'claude-sonnet-4-5', 'claude-3-opus-latest'
+    ];
+    if (_oldModels.includes(localStorage.getItem('anthropic_model_assist'))) {
+      localStorage.setItem('anthropic_model_assist', 'claude-haiku-4-5-20251001');
+    }
+    if (_oldModels.includes(localStorage.getItem('anthropic_model_generation'))) {
+      localStorage.setItem('anthropic_model_generation', 'claude-sonnet-4-6');
     }
 
     // Carga inicial de estado de llaves
